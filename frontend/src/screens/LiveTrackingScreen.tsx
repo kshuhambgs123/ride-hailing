@@ -4,12 +4,13 @@ import MapView, { Marker } from "react-native-maps";
 import { Title, IconButton, Avatar, Paragraph } from "react-native-paper";
 import { io } from "socket.io-client";
 import { BASE_URL as SOCKET_URL } from "../api/config";
+import { getAuthToken } from "../api/session";
 
 export default function LiveTrackingScreen({ navigation }: any) {
     const [drivers, setDrivers] = useState<any>({});
 
     useEffect(() => {
-        const socket = io(SOCKET_URL);
+        const socket = io(SOCKET_URL, { auth: { token: getAuthToken() } });
 
         socket.on("driverLocationUpdate", (data) => {
             setDrivers((prev: any) => ({

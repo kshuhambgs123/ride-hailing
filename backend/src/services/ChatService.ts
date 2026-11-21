@@ -12,17 +12,32 @@ export class ChatService {
         this.io.on("connection", (socket: Socket) => {
             console.log("User connected to chat:", socket.id);
 
-            socket.on("join_ride_chat", (rideId: string) => {
+            socket.on("join_ride_chat", async (rideId: string) => {
+                const isParticipant = await ChatService.isRideParticipant(rideId, socket.data.userId);
+                if (!isParticipant) {
+                    console.warn(`Socket ${socket.id} denied join on ride ${rideId}: not a participant`);
+                    return;
+                }
                 socket.join(rideId);
                 console.log(`Socket ${socket.id} joined ride chat: ${rideId}`);
             });
 
-            socket.on("send_message", async (data: { rideId: string, senderId: string, receiverId: string, content: string }) => {
+            // senderId comes from the authenticated socket, never the client
+            // payload — otherwise any connected client could post messages
+            // (and receiverId pairings) as any other user.
+            socket.on("send_message", async (data: { rideId: string, receiverId: string, content: string }) => {
+                const senderId = socket.data.userId;
+                const isParticipant = await ChatService.isRideParticipant(data.rideId, senderId);
+                if (!isParticipant) {
+                    console.warn(`Socket ${socket.id} denied send on ride ${data.rideId}: not a participant`);
+                    return;
+                }
+
                 const messageRepository = AppDataSource.getRepository(Message);
 
                 const message = messageRepository.create({
                     ride: { id: data.rideId } as Ride,
-                    sender: { id: data.senderId } as User,
+                    sender: { id: senderId } as User,
                     receiver: { id: data.receiverId } as User,
                     content: data.content
                 });
@@ -37,6 +52,17 @@ export class ChatService {
                 console.log("User disconnected from chat");
             });
         });
+    }
+
+    static async isRideParticipant(rideId: string, userId: string): Promise<boolean> {
+        if (!rideId || !userId) return false;
+        const rideRepository = AppDataSource.getRepository(Ride);
+        const ride = await rideRepository.findOne({
+            where: { id: rideId },
+            relations: ["passenger", "driver"],
+        });
+        if (!ride) return false;
+        return ride.passenger?.id === userId || ride.driver?.id === userId;
     }
 
     static async getChatHistory(rideId: string) {

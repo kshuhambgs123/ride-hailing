@@ -10,8 +10,17 @@ export class TrackingService {
         this.io.on("connection", (socket) => {
             console.log("Client connected for tracking:", socket.id);
 
-            socket.on("updateLocation", async (data: { driverId: string, lat: number, lng: number }) => {
-                const { driverId, lat, lng } = data;
+            // driverId comes from the authenticated socket, never the client
+            // payload — otherwise any connected client could spoof any
+            // driver's live GPS location.
+            socket.on("updateLocation", async (data: { lat: number, lng: number }) => {
+                if (socket.data.role !== "driver") {
+                    console.warn(`Socket ${socket.id} denied location update: not a driver`);
+                    return;
+                }
+
+                const driverId = socket.data.userId;
+                const { lat, lng } = data;
                 await RedisService.updateDriverLocation(driverId, lat, lng);
 
                 // Broadcast to passengers watching this driver

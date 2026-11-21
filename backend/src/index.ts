@@ -15,6 +15,7 @@ import platformRoutes from "./routes/platform.routes";
 import walletRoutes from "./routes/wallet.routes";
 import uploadRoutes from "./routes/upload.routes";
 import healthRoutes from "./routes/health.routes";
+import webhookRoutes from "./routes/webhook.routes";
 import { sentinelShield } from "./middleware/sentinelShield";
 import path from "path";
 import { TrackingService } from "./services/TrackingService";
@@ -24,6 +25,7 @@ import { AuditAction } from "./entities/AuditLog";
 import { Server } from "socket.io";
 import { createAdapter } from "@socket.io/redis-adapter";
 import Redis from "ioredis";
+import { socketAuth } from "./middleware/socketAuth";
 
 dotenv.config();
 
@@ -32,6 +34,7 @@ const server = http.createServer(app);
 const io = new Server(server, {
     cors: { origin: "*" }
 });
+io.use(socketAuth);
 const PORT = process.env.PORT || 5000;
 
 // Without this, chat/live-tracking events only reach sockets connected to the
@@ -49,6 +52,11 @@ if (process.env.REDIS_URL) {
 
 app.use(helmet());
 app.use(cors());
+
+// Mounted before express.json(): Stripe signature verification needs the
+// raw request body, which a global JSON parser would already have consumed.
+app.use("/api/webhooks", webhookRoutes);
+
 app.use(express.json());
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 

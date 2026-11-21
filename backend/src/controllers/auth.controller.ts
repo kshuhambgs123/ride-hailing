@@ -16,7 +16,11 @@ export const verifyOtp = async (req: Request, res: Response) => {
     try {
         let phoneNumber: string | undefined;
 
-        if (idToken === "mock-id-token") {
+        if (idToken === "mock-id-token" && process.env.NODE_ENV !== "production") {
+            // Dev/test-only bypass so the app works before real Firebase phone
+            // auth is wired on the client. Gated out of production — otherwise
+            // anyone could POST this literal string and mint a valid session
+            // for the fixed mock phone number with no OTP check at all.
             phoneNumber = "+1234567890"; // Default mock number
         } else {
             const decodedToken = await admin.auth().verifyIdToken(idToken);

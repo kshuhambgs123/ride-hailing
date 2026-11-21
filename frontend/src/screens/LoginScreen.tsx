@@ -1,37 +1,60 @@
-import React, { useState } from "react";
-import { View, StyleSheet, ImageBackground, Dimensions } from "react-native";
-import { TextInput, Button, Title, Text, Avatar } from "react-native-paper";
-import { auth } from "../utils/firebase";
+import React, { useRef, useState } from "react";
+import { View, StyleSheet, Dimensions } from "react-native";
+import { TextInput, Button, Title, Text, Avatar, SegmentedButtons, HelperText } from "react-native-paper";
+import { auth, firebaseConfig } from "../utils/firebase";
 import { PhoneAuthProvider, signInWithCredential } from "firebase/auth";
 import api from "../api/axios";
+import { setAuthToken } from "../api/session";
+import RecaptchaVerifier, { RecaptchaVerifierHandle } from "../components/RecaptchaVerifier";
+
+const E164_PHONE = /^\+[1-9]\d{7,14}$/;
 
 export default function LoginScreen({ navigation }: any) {
+    const recaptchaVerifier = useRef<RecaptchaVerifierHandle>(null);
     const [phoneNumber, setPhoneNumber] = useState("");
+    const [role, setRole] = useState<"user" | "driver">("user");
     const [verificationId, setVerificationId] = useState("");
     const [code, setCode] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState("");
 
     const sendOtp = async () => {
+        setError("");
+        if (!E164_PHONE.test(phoneNumber)) {
+            setError("Enter your number in international format, e.g. +14155550123");
+            return;
+        }
+
         setIsLoading(true);
-        console.log("Sending OTP to", phoneNumber);
-        // Simulate network delay for elite feel
-        setTimeout(() => {
-            setVerificationId("mock-id");
+        try {
+            const phoneProvider = new PhoneAuthProvider(auth);
+            const id = await phoneProvider.verifyPhoneNumber(phoneNumber, recaptchaVerifier.current as any);
+            setVerificationId(id);
+        } catch (err: any) {
+            console.error("Send OTP failed:", err);
+            setError(err?.message || "Couldn't send a verification code. Check the number and try again.");
+        } finally {
             setIsLoading(false);
-        }, 1500);
+        }
     };
 
     const verifyOtp = async () => {
+        setError("");
         setIsLoading(true);
         try {
-            const response = await api.post("/auth/verify-otp", {
-                idToken: "mock-id-token",
-                role: "user",
+            const credential = PhoneAuthProvider.credential(verificationId, code);
+            const userCredential = await signInWithCredential(auth, credential);
+            const idToken = await userCredential.user.getIdToken();
+
+            const response = await api.post("/auth/verify-otp", { idToken, role });
+            setAuthToken(response.data.token);
+            navigation.navigate("Home", {
+                isNewUser: response.data.isNewUser,
+                currentUserId: response.data.user?.id,
             });
-            console.log("Login success:", response.data);
-            navigation.navigate("Home", { isNewUser: response.data.isNewUser });
-        } catch (error) {
-            console.error("Login error:", error);
+        } catch (err: any) {
+            console.error("Verify OTP failed:", err);
+            setError(err?.message || "That code didn't work. Check it and try again.");
         } finally {
             setIsLoading(false);
         }
@@ -39,6 +62,8 @@ export default function LoginScreen({ navigation }: any) {
 
     return (
         <View style={styles.container}>
+            <RecaptchaVerifier ref={recaptchaVerifier} firebaseConfig={firebaseConfig} />
+
             <View style={styles.brandingHeader}>
                 <Avatar.Icon icon="infinity" size={80} style={{ backgroundColor: '#6200ee' }} />
                 <Title style={styles.heroTitle}>VOLO</Title>
@@ -49,6 +74,15 @@ export default function LoginScreen({ navigation }: any) {
                 {!verificationId ? (
                     <>
                         <Text style={styles.label}>Enter your mobile number to begin your journey.</Text>
+                        <SegmentedButtons
+                            value={role}
+                            onValueChange={(v) => setRole(v as "user" | "driver")}
+                            style={styles.input}
+                            buttons={[
+                                { value: "user", label: "Rider" },
+                                { value: "driver", label: "Driver" },
+                            ]}
+                        />
                         <TextInput
                             label="Phone Number"
                             value={phoneNumber}
@@ -60,6 +94,7 @@ export default function LoginScreen({ navigation }: any) {
                             activeOutlineColor="#6200ee"
                             placeholder="+1 (555) 000-0000"
                         />
+                        {!!error && <HelperText type="error">{error}</HelperText>}
                         <Button
                             mode="contained"
                             onPress={sendOtp}
@@ -84,6 +119,7 @@ export default function LoginScreen({ navigation }: any) {
                             outlineColor="#6200ee"
                             activeOutlineColor="#6200ee"
                         />
+                        {!!error && <HelperText type="error">{error}</HelperText>}
                         <Button
                             mode="contained"
                             onPress={verifyOtp}
@@ -94,7 +130,7 @@ export default function LoginScreen({ navigation }: any) {
                         >
                             Verify & Enter
                         </Button>
-                        <Button mode="text" onPress={() => setVerificationId("")} textColor="#6200ee">
+                        <Button mode="text" onPress={() => { setVerificationId(""); setCode(""); setError(""); }} textColor="#6200ee">
                             Resend Code
                         </Button>
                     </>

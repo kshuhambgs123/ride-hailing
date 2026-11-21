@@ -25,7 +25,11 @@ export const getPlatformStats = async (req: Request, res: Response) => {
 };
 
 export const verifyKyc = async (req: Request, res: Response) => {
-    const { userId, governmentId, idType } = req.body;
+    // userId must come from the authenticated session, never the request
+    // body — otherwise any logged-in user could KYC-verify any other
+    // account (e.g. mark an unverified driver as verified).
+    const userId = (req as any).user.id;
+    const { governmentId, idType } = req.body;
     const success = await KycService.verifyIdentity(userId, governmentId, idType);
     if (success) {
         res.json({ message: "Identity Verified successfully" });

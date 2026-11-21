@@ -24,6 +24,11 @@ export const AppDataSource = new DataSource({
     username: process.env.DB_USER || "postgres",
     password: process.env.DB_PASSWORD || "postgres",
     database: process.env.DB_NAME || "volo",
+    // Hosted Postgres (Supabase, Neon, RDS) requires TLS; local/docker-compose
+    // Postgres does not speak TLS at all, so this must stay opt-in via env var.
+    // rejectUnauthorized: false because these providers use certs not in Node's
+    // default trust store — fine for connection encryption, not for pinning.
+    ssl: process.env.DB_SSL === "true" ? { rejectUnauthorized: false } : undefined,
     // Auto-sync is fine in dev (and is what docker-compose relies on today)
     // but is a well-known source of production data loss/corruption, and is
     // unsafe with more than one instance booting concurrently (the

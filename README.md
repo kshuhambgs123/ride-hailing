@@ -27,6 +27,12 @@ cd backend && docker compose up --build
 cd frontend && npm install && npm start
 ```
 
+## Free-tier setup & launch
+
+See **[SETUP_AND_LAUNCH.md](SETUP_AND_LAUNCH.md)** for deploying at zero
+infra cost (Render + Supabase + Upstash + AWS S3) and launching the mobile
+app for testing, with a clear path to migrate to the AWS stack below later.
+
 ## Production deployment
 
 See **[infra/aws/README.md](infra/aws/README.md)** for the Terraform stack
