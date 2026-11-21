@@ -1,0 +1,50 @@
+# Volo
+
+A ride-hailing / carpooling platform (backend: Node.js + TypeScript +
+PostgreSQL + Redis + Socket.io; frontend: React Native / Expo).
+
+## Repository layout
+
+```
+ride-hailing/
+├── backend/        Node.js + TypeScript API (Express, TypeORM, Postgres, Redis, Socket.io)
+├── frontend/       React Native (Expo) mobile app
+├── infra/aws/      Terraform for production AWS infrastructure (VPC, RDS, Redis, S3, ECS/Fargate)
+├── legal/          Privacy Policy & Terms of Service drafts (fill in placeholders before publishing)
+└── .github/        CI (test + build) and CD (build, migrate, deploy) workflows
+```
+
+## Quick start
+
+See **[USAGE.md](USAGE.md)** for full use cases, the API reference, running the
+backend (Docker or local) and the frontend (Expo), and end-to-end flows.
+
+```bash
+# Backend (Docker — API + Postgres + Redis + backups)
+cd backend && docker compose up --build
+
+# Frontend
+cd frontend && npm install && npm start
+```
+
+## Production deployment
+
+See **[infra/aws/README.md](infra/aws/README.md)** for the Terraform stack
+(VPC, RDS Postgres/PostGIS, ElastiCache Redis, S3, ECS Fargate + ALB) and
+**[.github/workflows/backend-ci.yml](.github/workflows/backend-ci.yml)** for
+the CI/CD pipeline that builds, runs migrations, and deploys on push to `main`.
+
+## Store submission
+
+`frontend/app.json` and `frontend/eas.json` are configured for iOS/Android
+builds via EAS. Before submitting, replace the placeholder Firebase config in
+`frontend/src/utils/firebase.ts`, set real Stripe keys, and fill in and
+publish the legal docs in `legal/`.
+
+## Legal
+
+- [Privacy Policy](legal/PRIVACY_POLICY.md)
+- [Terms of Service](legal/TERMS_OF_SERVICE.md)
+
+Both are drafts — replace the `[BRACKETED]` placeholders and get them
+reviewed before publishing.
