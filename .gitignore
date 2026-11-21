@@ -1,0 +1,32 @@
+# Volo Elite: Global Ecosystem Shield 🌍🛡️✨
+
+# Node.js
+node_modules/
+
+# OS Specific
+.DS_Store
+Thumbs.db
+
+# Build Artifacts
+dist/
+build/
+*.tsbuildinfo
+
+# Environment & Secrets
+.env
+.env.*
+.expo/
+*.pem
+*.key
+
+# Persistent Data
+postgres_data/
+db_backups/
+backend/uploads/ids/*
+!backend/uploads/ids/.gitkeep
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo

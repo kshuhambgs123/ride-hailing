@@ -1,0 +1,44 @@
+volo app
+
+
+I am building a ride-hailing/carpooling application called "BlaBlaRide" to compete with and beat BlaBlaCar globally. The project has two codebases:
+- Backend: /Users/genwise/Desktop/shubham/ride-hailing/backend (Node.js + TypeScript + PostgreSQL)
+- Frontend: /Users/genwise/Desktop/shubham/ride-hailing/frontend (React Native Expo)
+
+### Core Requirements:
+1. **Scale**: Support 20+ million daily active users with low latency
+2. **Real-time**: Live driver tracking, instant ride matching, push notifications
+3. **Trust & Safety**: KYC verification (Aadhar), emergency SOS, verified profiles
+4. **Monetization**: Platform fees, referral bonuses, coupons/campaigns
+5. **Premium UX**: World-class UI with micro-animations, dark mode, gamification
+
+### Features to Implement (Beat BlaBlaCar):
+- [ ] In-App Messaging (Driver-Passenger real-time chat via Socket.io)
+- [ ] Push Notifications (Firebase Cloud Messaging for ride alerts)
+- [ ] User Preferences (Music, Smoking, Pets, Ladies-Only, Chattiness level)
+- [ ] Recurring Rides (Daily commute scheduling and automation)
+- [ ] Waypoints & Multi-Stop Routing (Pickup multiple passengers)
+- [ ] Emergency SOS & Safety Center (One-tap distress, live location sharing)
+- [ ] CO2 & Money Savings Tracker (Eco-friendly gamification)
+- [ ] User Badges & Achievements (Gamification for retention)
+- [ ] Multi-language Support (i18n for global expansion)
+- [ ] Automatic Ratings (5-star for smooth rides, 1-star for no-shows)
+- [ ] Ride Alerts (Notify when matching rides are published)
+- [ ] Multimodal Integration (Bus + Train + Carpool in one search)
+
+### Infrastructure Requirements:
+- Docker + Docker Compose for containerized deployment
+- Automated database backups (pg_dump with 7-day retention)
+- CI/CD pipelines (GitHub Actions for test + build verification)
+- Redis for caching and real-time geospatial queries
+- Stripe for secure global payments
+
+### Instructions:
+1. Analyze my existing codebase first to understand current implementation
+2. Identify gaps compared to BlaBlaCar's feature set
+3. Implement features end-to-end (backend API + frontend screens)
+4. Use premium, modern UI design patterns (glassmorphism, gradients, animations)
+5. Ensure all code is production-ready, tested, and documented
+6. Update task.md and implementation_plan.md as you progress
+
+Start by reviewing the current state of both projects and propose an implementation plan for the missing features.

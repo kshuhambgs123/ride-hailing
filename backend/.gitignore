@@ -1,0 +1,29 @@
+# Volo Elite: Backend Privacy Shield 🛡️ 
+
+# Dependencies
+node_modules/
+
+# Environment Secrets
+.env
+.env.*
+
+# Build Artifacts
+dist/
+out/
+build/
+*.tsbuildinfo
+
+# Telemetry & Logs
+logs
+*.log
+npm-debug.log*
+
+# Persistence & Uploads
+uploads/ids/*
+!uploads/ids/.gitkeep
+postgres_data/ 
+db_backups/
+
+# System
+.DS_Store
+Thumbs.db

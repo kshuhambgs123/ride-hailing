@@ -1,0 +1,22 @@
+project     = "volo"
+environment = "production"
+aws_region  = "us-east-1"
+
+# Leave empty on the very first apply (the stack starts with a placeholder
+# nginx image so the ECS service has something to run); set this after your
+# first `docker build` + `docker push` to the ECR repo the stack creates,
+# then `terraform apply` again.
+backend_image = ""
+
+# Optional: set both to get a real HTTPS domain (api.volo.app) with a
+# Route53-validated ACM cert instead of the raw ALB DNS name.
+domain_name     = ""
+route53_zone_id = ""
+
+# Secrets — do NOT put real values here if this file is committed.
+# Pass them instead as environment variables when running terraform, e.g.:
+#   export TF_VAR_jwt_secret="$(openssl rand -hex 32)"
+#   export TF_VAR_stripe_secret_key="sk_live_..."
+#   export TF_VAR_firebase_project_id="..."
+#   export TF_VAR_firebase_client_email="..."
+#   export TF_VAR_firebase_private_key="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
