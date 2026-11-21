@@ -44,6 +44,7 @@ cd infra/aws
 cp terraform.tfvars.example terraform.tfvars   # then edit non-secret values
 export TF_VAR_jwt_secret="$(openssl rand -hex 32)"
 export TF_VAR_stripe_secret_key="sk_live_..."
+export TF_VAR_stripe_webhook_secret="whsec_..."
 export TF_VAR_firebase_project_id="..."
 export TF_VAR_firebase_client_email="..."
 export TF_VAR_firebase_private_key="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"

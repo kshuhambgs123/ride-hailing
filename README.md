@@ -35,10 +35,11 @@ app for testing, with a clear path to migrate to the AWS stack below later.
 
 ## Production deployment
 
-See **[infra/aws/README.md](infra/aws/README.md)** for the Terraform stack
-(VPC, RDS Postgres/PostGIS, ElastiCache Redis, S3, ECS Fargate + ALB) and
-**[.github/workflows/backend-ci.yml](.github/workflows/backend-ci.yml)** for
-the CI/CD pipeline that builds, runs migrations, and deploys on push to `main`.
+See **[PRODUCTION_DEPLOYMENT.md](PRODUCTION_DEPLOYMENT.md)** for the full
+production path: prerequisites, the Terraform/AWS stack (VPC, RDS
+Postgres/PostGIS, ElastiCache Redis, S3, ECS Fargate + ALB), CI/CD via
+**[.github/workflows/backend-ci.yml](.github/workflows/backend-ci.yml)**,
+the Stripe webhook, and EAS app store submission.
 
 ## Store submission
 

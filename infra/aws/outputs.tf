@@ -7,6 +7,26 @@ output "ecr_repository_url" {
   value       = module.ecs.ecr_repository_url
 }
 
+output "ecr_repository_name" {
+  description = "Just the repo name (not the full URL) — what CI's ECR_REPOSITORY variable expects"
+  value       = module.ecs.ecr_repository_name
+}
+
+output "alb_dns_name" {
+  description = "Raw ALB hostname — use this for the Stripe webhook URL if domain_name isn't set yet"
+  value       = module.ecs.alb_dns_name
+}
+
+output "ecs_security_group_id" {
+  description = "What CI's ECS_SECURITY_GROUP_ID variable expects, for the one-off migration task"
+  value       = module.ecs.backend_security_group_id
+}
+
+output "private_subnet_ids" {
+  description = "Comma-join these for CI's ECS_SUBNET_IDS variable"
+  value       = module.network.private_subnet_ids
+}
+
 output "db_endpoint" {
   value = module.database.endpoint
 }

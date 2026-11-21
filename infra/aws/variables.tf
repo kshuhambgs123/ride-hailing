@@ -97,6 +97,13 @@ variable "stripe_secret_key" {
   default   = ""
 }
 
+variable "stripe_webhook_secret" {
+  description = "From the Stripe Dashboard webhook endpoint for this API's /api/webhooks/stripe. Without it, backend/src/controllers/webhook.controller.ts refuses to process payment confirmations and rides never move past paymentStatus \"pending\"."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 variable "firebase_project_id" {
   type    = string
   default = ""

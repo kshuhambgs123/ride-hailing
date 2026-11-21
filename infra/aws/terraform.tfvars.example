@@ -17,6 +17,7 @@ route53_zone_id = ""
 # Pass them instead as environment variables when running terraform, e.g.:
 #   export TF_VAR_jwt_secret="$(openssl rand -hex 32)"
 #   export TF_VAR_stripe_secret_key="sk_live_..."
+#   export TF_VAR_stripe_webhook_secret="whsec_..."   # from the Stripe webhook endpoint
 #   export TF_VAR_firebase_project_id="..."
 #   export TF_VAR_firebase_client_email="..."
 #   export TF_VAR_firebase_private_key="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"

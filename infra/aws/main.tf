@@ -55,6 +55,7 @@ module "ecs" {
   route53_zone_id        = var.route53_zone_id
   jwt_secret             = var.jwt_secret
   stripe_secret_key      = var.stripe_secret_key
+  stripe_webhook_secret  = var.stripe_webhook_secret
   firebase_project_id    = var.firebase_project_id
   firebase_client_email  = var.firebase_client_email
   firebase_private_key   = var.firebase_private_key

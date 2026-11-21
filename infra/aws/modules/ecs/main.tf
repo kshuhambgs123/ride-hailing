@@ -17,6 +17,7 @@ variable "domain_name" { type = string }
 variable "route53_zone_id" { type = string }
 variable "jwt_secret" { type = string }
 variable "stripe_secret_key" { type = string }
+variable "stripe_webhook_secret" { type = string }
 variable "firebase_project_id" { type = string }
 variable "firebase_client_email" { type = string }
 variable "firebase_private_key" { type = string }
@@ -223,6 +224,7 @@ resource "aws_secretsmanager_secret_version" "app" {
   secret_string = jsonencode({
     JWT_SECRET            = var.jwt_secret
     STRIPE_SECRET_KEY     = var.stripe_secret_key
+    STRIPE_WEBHOOK_SECRET = var.stripe_webhook_secret
     FIREBASE_PROJECT_ID   = var.firebase_project_id
     FIREBASE_CLIENT_EMAIL = var.firebase_client_email
     FIREBASE_PRIVATE_KEY  = var.firebase_private_key
@@ -322,6 +324,7 @@ resource "aws_ecs_task_definition" "backend" {
     environment = [
       { name = "PORT", value = tostring(var.container_port) },
       { name = "NODE_ENV", value = "production" },
+      { name = "DB_SSL", value = "true" },
       # rediss:// (not redis://): the ElastiCache replication group has
       # transit_encryption_enabled = true, and ioredis enables TLS
       # automatically off this URL scheme.
@@ -339,6 +342,7 @@ resource "aws_ecs_task_definition" "backend" {
       { name = "DB_NAME", valueFrom = "${var.db_secret_arn}:dbname::" },
       { name = "JWT_SECRET", valueFrom = "${aws_secretsmanager_secret.app.arn}:JWT_SECRET::" },
       { name = "STRIPE_SECRET_KEY", valueFrom = "${aws_secretsmanager_secret.app.arn}:STRIPE_SECRET_KEY::" },
+      { name = "STRIPE_WEBHOOK_SECRET", valueFrom = "${aws_secretsmanager_secret.app.arn}:STRIPE_WEBHOOK_SECRET::" },
       { name = "FIREBASE_PROJECT_ID", valueFrom = "${aws_secretsmanager_secret.app.arn}:FIREBASE_PROJECT_ID::" },
       { name = "FIREBASE_CLIENT_EMAIL", valueFrom = "${aws_secretsmanager_secret.app.arn}:FIREBASE_CLIENT_EMAIL::" },
       { name = "FIREBASE_PRIVATE_KEY", valueFrom = "${aws_secretsmanager_secret.app.arn}:FIREBASE_PRIVATE_KEY::" },
@@ -409,6 +413,7 @@ resource "aws_appautoscaling_policy" "backend_cpu" {
 
 output "alb_dns_name" { value = aws_lb.this.dns_name }
 output "ecr_repository_url" { value = aws_ecr_repository.backend.repository_url }
+output "ecr_repository_name" { value = aws_ecr_repository.backend.name }
 output "ecr_repository_arn" { value = aws_ecr_repository.backend.arn }
 output "backend_security_group_id" { value = aws_security_group.backend.id }
 output "api_url" { value = local.use_tls ? "https://${var.domain_name}" : "http://${aws_lb.this.dns_name}" }
