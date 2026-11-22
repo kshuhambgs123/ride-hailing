@@ -3,6 +3,7 @@ import { User } from "../entities/User";
 import { Transaction, TransactionType, TransactionStatus } from "../entities/Transaction";
 import { SentinelService } from "./SentinelService";
 import { AuditAction } from "../entities/AuditLog";
+import { MARKET } from "../config/market";
 
 export class WalletService {
     static async getBalance(userId: string): Promise<number> {
@@ -24,7 +25,7 @@ export class WalletService {
                 user: { id: userId } as any,
                 grossAmount: amount,
                 netAmount: amount,
-                currency: "USD",
+                currency: MARKET.currency,
                 type: TransactionType.CREDIT,
                 status: TransactionStatus.COMPLETED,
                 externalId: referenceId
@@ -53,7 +54,7 @@ export class WalletService {
                 user,
                 grossAmount: -amount,
                 netAmount: -amount,
-                currency: "USD",
+                currency: MARKET.currency,
                 type: TransactionType.DEBIT,
                 status: TransactionStatus.COMPLETED,
                 externalId: referenceId

@@ -304,8 +304,8 @@ export default function HomeScreen({ navigation }: any) {
                 <MapView
                     style={styles.map}
                     initialRegion={{
-                        latitude: location ? location.coords.latitude : 37.78825,
-                        longitude: location ? location.coords.longitude : -122.4324,
+                        latitude: location ? location.coords.latitude : 28.6139, // Delhi until GPS resolves
+                        longitude: location ? location.coords.longitude : 77.2090,
                         latitudeDelta: 0.0922,
                         longitudeDelta: 0.0421,
                     }}
@@ -512,7 +512,7 @@ export default function HomeScreen({ navigation }: any) {
                             // Chain to the existing priority check or direct schedule
                             Alert.alert(
                                 "Elite Priority",
-                                "Secure this slot with Priority Booking ($1.00 refundable) or use Standard (Free)?",
+                                `Secure this slot with Priority Booking (${CurrencyFormatter.format(1)} refundable) or use Standard (Free)?`,
                                 [
                                     { text: "Standard", onPress: () => handleScheduleRide(false) },
                                     { text: "Priority", onPress: () => handleScheduleRide(true) }
@@ -541,7 +541,7 @@ export default function HomeScreen({ navigation }: any) {
                         </Title>
 
                         <Paragraph style={styles.immersiveParagraph}>
-                            {onboardingStep === 0 && "We've gifted you $10! Every journey starts with capital. Use your credits for your first elite ride."}
+                            {onboardingStep === 0 && `We've gifted you ${CurrencyFormatter.format(10)}! Use your credit on your first ride.`}
                             {onboardingStep === 1 && "Hands-free mastery. Just speak your destination in any language, and let Volo's AI handle the rest."}
                             {onboardingStep === 2 && "Precision scheduling. Book for now or for the future with millisecond accuracy and optional priority."}
                             {onboardingStep === 3 && "You are protected. Every ride is audited by Volo Sentinel, with built-in SOS and fraud detection."}

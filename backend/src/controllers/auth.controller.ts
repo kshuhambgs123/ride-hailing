@@ -12,7 +12,11 @@ import { TenantRequest } from "../middleware/tenant.middleware";
 
 export const verifyOtp = async (req: TenantRequest, res: Response) => {
     const userRepository = AppDataSource.getRepository(User);
-    const { idToken, role } = req.body;
+    // Any `role` in the body is ignored: every new account starts as a rider.
+    // Driver access only comes from an admin approving a driver application,
+    // and admin only from the database — otherwise picking "driver" at
+    // signup would skip vetting entirely.
+    const { idToken } = req.body;
     const tenant = req.tenant!;
 
     try {
@@ -41,7 +45,7 @@ export const verifyOtp = async (req: TenantRequest, res: Response) => {
             user = userRepository.create({
                 phoneNumber,
                 tenantId: tenant.id,
-                role: role || UserRole.USER,
+                role: UserRole.USER,
                 isVerified: true,
             });
             await userRepository.save(user);

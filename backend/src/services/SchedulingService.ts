@@ -4,6 +4,7 @@ import { WalletService } from "./WalletService";
 import { PricingService, TripValidationError } from "./PricingService";
 import { SentinelService } from "./SentinelService";
 import { AuditAction } from "../entities/AuditLog";
+import { serviceAreaError } from "../config/market";
 
 export class SchedulingService {
     /**
@@ -78,6 +79,9 @@ export class SchedulingService {
         }
         // Priced server-side, same as an on-demand request — a fare sent by
         // the app is never trusted.
+        const outside = serviceAreaError(pickup, destination);
+        if (outside) throw new TripValidationError(outside);
+
         const quote = PricingService.quote(pickup, destination, "local", 1);
         const tooFar = PricingService.distanceLimitError(quote.distanceKm, "local");
         if (tooFar) throw new TripValidationError(tooFar);

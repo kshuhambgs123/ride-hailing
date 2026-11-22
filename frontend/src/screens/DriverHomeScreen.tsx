@@ -6,6 +6,7 @@ import { io, Socket } from "socket.io-client";
 import api from "../api/axios";
 import { BASE_URL as SOCKET_URL, TENANT_SLUG } from "../api/config";
 import { getAuthToken } from "../api/session";
+import { CurrencyFormatter } from "../utils/CurrencyFormatter";
 
 type RideRequest = {
     id: string;
@@ -133,7 +134,7 @@ export default function DriverHomeScreen({ navigation }: any) {
         if (cash && !cash.confirmed) {
             Alert.alert(
                 "Cash not confirmed",
-                `The rider chose cash ($${cash.amount.toFixed(2)}). Confirm you received it before ending?`,
+                `The rider chose cash (${CurrencyFormatter.format(cash.amount)}). Confirm you received it before ending?`,
                 [
                     { text: "Go back", style: "cancel" },
                     { text: "End anyway", style: "destructive", onPress: completeTrip },
@@ -180,7 +181,7 @@ export default function DriverHomeScreen({ navigation }: any) {
                         style={{ marginBottom: 12 }}
                         onPress={confirmCash}
                     >
-                        Confirm Cash Received (${cash.amount.toFixed(2)})
+                        Confirm Cash Received ({CurrencyFormatter.format(cash.amount)})
                     </Button>
                 )}
                 {cash?.confirmed && <Paragraph style={{ color: "#2E7D32", marginBottom: 12 }}>Cash payment confirmed</Paragraph>}
@@ -201,7 +202,7 @@ export default function DriverHomeScreen({ navigation }: any) {
                     <Card style={styles.card}>
                         <Card.Content>
                             <Title>{item.passenger?.displayName || "Rider"}</Title>
-                            <Paragraph>Fare: ${Number(item.fare).toFixed(2)}</Paragraph>
+                            <Paragraph>Fare: {CurrencyFormatter.format(Number(item.fare))}</Paragraph>
                         </Card.Content>
                         <Card.Actions>
                             <Button mode="contained" onPress={() => acceptRide(item.id)}>Accept</Button>

@@ -186,6 +186,46 @@ doc) — run `terraform output` after `apply` to see them all at once.
       with error tracking; add Sentry or similar to the backend and app
       before, not after, you have real users depending on it
 
+### Launching in Delhi NCR
+
+The app is configured for Delhi NCR (`backend/src/config/market.ts`):
+amounts in rupees, the 112 emergency number, and a service area covering
+Delhi, Gurugram, Noida, Greater Noida, Ghaziabad and Faridabad. Both ends of
+every trip must be inside it. The non-code side needs as much attention.
+Treat this as a list of questions for a transport lawyer, not legal advice:
+
+- [ ] **Three states, three regulators.** Delhi, Uttar Pradesh (Noida,
+      Ghaziabad) and Haryana (Gurugram, Faridabad) each license ride-hailing
+      aggregators separately. Delhi has its own aggregator scheme (2023), and
+      the central Motor Vehicle Aggregator Guidelines set baseline rules
+      (driver checks, insurance, fare and surge limits) that each state
+      applies. Plan which state you license in first, and how trips that
+      cross state lines (e.g. Ghaziabad to Gurugram) are permitted.
+- [ ] **Commercial vehicles.** Paid rides generally need commercially
+      registered vehicles (yellow plates, commercial permit and insurance).
+      Paid "carpooling" in private cars is a legal grey area. Get a clear
+      answer before launching carpooling, not after.
+- [ ] **Aadhaar.** The app stores the government ID number a driver types in
+      (`User.governmentId`). Aadhaar numbers have strict storage rules. Use
+      masked numbers or DigiLocker-style verification, and don't keep the
+      raw number.
+- [ ] **Privacy.** The Digital Personal Data Protection Act applies to
+      location, phone numbers and ID documents: consent, a published privacy
+      policy, and a way to delete an account's data.
+- [ ] **Tax.** GST registration, plus tax deductions on driver payouts as an
+      e-commerce operator. Ask your accountant.
+- [ ] **Payments.** Razorpay (UPI, cards, netbanking) and cash are the right
+      defaults here. Stripe needs extra approval for Indian businesses, and
+      PayPal no longer handles payments within India at all, so it can't take
+      rupee fares.
+- [ ] **Prices.** The rates (₹20 base + ₹12/km local, `PricingService.ts`)
+      and the fixed amounts (₹10 welcome credit, ₹1 priority deposit, ₹2
+      cancellation fee, ₹50 referral reward) were never set for India.
+      Compare against local fares and set them deliberately before launch.
+- [ ] **Start small.** Pick one dense corridor first, for example Ghaziabad
+      (Indirapuram, Vaishali, Raj Nagar Extension) to Noida and East Delhi
+      office commutes, and recruit drivers there before marketing to riders.
+
 ## 7. Onboarding a new white-label operator
 
 This backend is multi-tenant (see `backend/src/entities/Tenant.ts`) — one

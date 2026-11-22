@@ -5,6 +5,7 @@ import { PayPalProvider } from "./payment/PayPalProvider";
 import { UniversalProvider } from "./payment/UniversalProvider";
 import { AppDataSource } from "../data-source";
 import { Transaction, TransactionType, TransactionStatus } from "../entities/Transaction";
+import { MARKET } from "../config/market";
 
 export class PaymentService {
     // Built lazily (not at module load) so the app can still boot when a
@@ -50,7 +51,7 @@ export class PaymentService {
 
     static async createPaymentIntent(
         amount: number,
-        currency: string = "usd",
+        currency: string = MARKET.currency,
         providerName: string = "stripe",
         rideId?: string,
         userId?: string,

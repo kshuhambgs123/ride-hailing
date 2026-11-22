@@ -1,6 +1,6 @@
 import React, { useRef, useState } from "react";
 import { View, StyleSheet, Dimensions } from "react-native";
-import { TextInput, Button, Title, Text, Avatar, SegmentedButtons, HelperText } from "react-native-paper";
+import { TextInput, Button, Title, Text, Avatar, HelperText } from "react-native-paper";
 import { auth, firebaseConfig } from "../utils/firebase";
 import { PhoneAuthProvider, signInWithCredential } from "firebase/auth";
 import api from "../api/axios";
@@ -9,10 +9,20 @@ import RecaptchaVerifier, { RecaptchaVerifierHandle } from "../components/Recapt
 
 const E164_PHONE = /^\+[1-9]\d{7,14}$/;
 
+// Riders in India usually type a bare 10-digit mobile number (or 0- / 91-
+// prefixed); turn those into +91 E.164 so Firebase accepts them.
+function normalizeIndianNumber(input: string): string {
+    const digits = input.replace(/[^\d+]/g, "");
+    if (digits.startsWith("+")) return digits;
+    const bare = digits.replace(/^0+/, "");
+    if (/^[6-9]\d{9}$/.test(bare)) return `+91${bare}`;
+    if (/^91[6-9]\d{9}$/.test(bare)) return `+${bare}`;
+    return digits;
+}
+
 export default function LoginScreen({ navigation }: any) {
     const recaptchaVerifier = useRef<RecaptchaVerifierHandle>(null);
     const [phoneNumber, setPhoneNumber] = useState("");
-    const [role, setRole] = useState<"user" | "driver">("user");
     const [verificationId, setVerificationId] = useState("");
     const [code, setCode] = useState("");
     const [isLoading, setIsLoading] = useState(false);
@@ -20,15 +30,16 @@ export default function LoginScreen({ navigation }: any) {
 
     const sendOtp = async () => {
         setError("");
-        if (!E164_PHONE.test(phoneNumber)) {
-            setError("Enter your number in international format, e.g. +14155550123");
+        const normalized = normalizeIndianNumber(phoneNumber);
+        if (!E164_PHONE.test(normalized)) {
+            setError("Enter a valid mobile number, e.g. 98765 43210");
             return;
         }
 
         setIsLoading(true);
         try {
             const phoneProvider = new PhoneAuthProvider(auth);
-            const id = await phoneProvider.verifyPhoneNumber(phoneNumber, recaptchaVerifier.current as any);
+            const id = await phoneProvider.verifyPhoneNumber(normalized, recaptchaVerifier.current as any);
             setVerificationId(id);
         } catch (err: any) {
             console.error("Send OTP failed:", err);
@@ -46,7 +57,7 @@ export default function LoginScreen({ navigation }: any) {
             const userCredential = await signInWithCredential(auth, credential);
             const idToken = await userCredential.user.getIdToken();
 
-            const response = await api.post("/auth/verify-otp", { idToken, role });
+            const response = await api.post("/auth/verify-otp", { idToken });
             setAuthToken(response.data.token);
             setCurrentUser({
                 id: response.data.user.id,
@@ -83,15 +94,7 @@ export default function LoginScreen({ navigation }: any) {
                 {!verificationId ? (
                     <>
                         <Text style={styles.label}>Enter your mobile number to begin your journey.</Text>
-                        <SegmentedButtons
-                            value={role}
-                            onValueChange={(v) => setRole(v as "user" | "driver")}
-                            style={styles.input}
-                            buttons={[
-                                { value: "user", label: "Rider" },
-                                { value: "driver", label: "Driver" },
-                            ]}
-                        />
+                        <Text style={styles.hint}>Want to drive? Sign up, then apply from the menu under "Become a Driver".</Text>
                         <TextInput
                             label="Phone Number"
                             value={phoneNumber}
@@ -101,7 +104,7 @@ export default function LoginScreen({ navigation }: any) {
                             style={styles.input}
                             outlineColor="#6200ee"
                             activeOutlineColor="#6200ee"
-                            placeholder="+1 (555) 000-0000"
+                            placeholder="+91 98765 43210"
                         />
                         {!!error && <HelperText type="error">{error}</HelperText>}
                         <Button
@@ -156,7 +159,8 @@ const styles = StyleSheet.create({
     heroTitle: { fontSize: 48, fontWeight: "900", letterSpacing: 8, color: "#6200ee", marginTop: 10 },
     heroSubtitle: { fontSize: 14, color: "#666", fontWeight: "300", textAlign: "center" },
     formContainer: { width: "100%" },
-    label: { fontSize: 16, color: "#444", marginBottom: 20, textAlign: "center" },
+    label: { fontSize: 16, color: "#444", marginBottom: 8, textAlign: "center" },
+    hint: { fontSize: 13, color: "#777", marginBottom: 20, textAlign: "center" },
     input: { marginBottom: 20, backgroundColor: "#fff" },
     button: { borderRadius: 12, elevation: 8 },
     footerText: { fontSize: 12, color: "#aaa", textAlign: "center", marginBottom: 20 },

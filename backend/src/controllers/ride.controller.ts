@@ -18,6 +18,7 @@ import { SchedulingService } from "../services/SchedulingService";
 import { AuditAction } from "../entities/AuditLog";
 import { Transaction, TransactionType, TransactionStatus } from "../entities/Transaction";
 import { Tenant } from "../entities/Tenant";
+import { MARKET, serviceAreaError, formatMoney } from "../config/market";
 
 export const requestRide = async (req: AuthRequest, res: Response) => {
     const rideRepository = AppDataSource.getRepository(Ride);
@@ -36,6 +37,9 @@ export const requestRide = async (req: AuthRequest, res: Response) => {
     try {
         const passenger = await userRepository.findOneBy({ id: passengerId });
         if (!passenger) return res.status(404).json({ message: "Passenger not found" });
+
+        const outside = serviceAreaError(pickup, destination);
+        if (outside) return res.status(400).json({ message: outside });
 
         const quote = PricingService.quote(pickup, destination, rideType, Number(seats) || 1);
         const tooFar = PricingService.distanceLimitError(quote.distanceKm, rideType);
@@ -126,6 +130,12 @@ export const publishRide = async (req: AuthRequest, res: Response) => {
     const rideRepository = AppDataSource.getRepository(Ride);
     const { pickupLat, pickupLng, destinationLat, destinationLng, pickupAddress, destinationAddress, departureTime, fare, totalSeats, rideType } = req.body;
     const driverId = req.user.id;
+
+    const outside = serviceAreaError(
+        { lat: Number(pickupLat), lng: Number(pickupLng) },
+        { lat: Number(destinationLat), lng: Number(destinationLng) },
+    );
+    if (outside) return res.status(400).json({ message: outside });
 
     try {
         const ride = rideRepository.create({
@@ -232,7 +242,7 @@ export const payRide = async (req: AuthRequest, res: Response) => {
             await rideRepo.save(ride);
 
             return res.json({
-                message: `Settled! Fare: $${ride.fare} (Deposit $${depositPaid} used, Paid remaining $${remainingToPay})`,
+                message: `Settled! Fare: ${formatMoney(ride.fare)} (Deposit ${formatMoney(depositPaid)} used, paid remaining ${formatMoney(remainingToPay)})`,
                 newBalance
             });
         }
@@ -251,14 +261,14 @@ export const payRide = async (req: AuthRequest, res: Response) => {
                 amount: remainingToPay,
             });
 
-            return res.json({ message: `Pay the driver $${remainingToPay.toFixed(2)} in cash at the end of your trip.` });
+            return res.json({ message: `Pay the driver ${formatMoney(remainingToPay)} in cash at the end of your trip.` });
         }
 
         // External gateways — the response only carries a pending intent /
         // checkout link; paymentStatus only ever moves to "paid" via that
         // gateway's webhook (see webhook.controller.ts), never from here.
         const payer = await userRepo.findOneBy({ id: userId });
-        const defaultCurrency = provider === "razorpay" ? "INR" : "USD";
+        const defaultCurrency = MARKET.currency;
         const result = await PaymentService.createPaymentIntent(
             remainingToPay,
             defaultCurrency,
@@ -310,14 +320,14 @@ export const confirmCashPayment = async (req: AuthRequest, res: Response) => {
             type: TransactionType.CASH,
             grossAmount: remainingToPay,
             netAmount: remainingToPay,
-            currency: "usd",
+            currency: MARKET.currency,
             status: TransactionStatus.COMPLETED,
             provider: "cash",
         }));
 
         TrackingService.emitRideStatusUpdate(rideId, "cash_confirmed", { amount: remainingToPay });
 
-        res.json({ message: `Confirmed: $${remainingToPay.toFixed(2)} received in cash.` });
+        res.json({ message: `Confirmed: ${formatMoney(remainingToPay)} received in cash.` });
     } catch (error) {
         res.status(500).json({ message: "Error confirming cash payment", error: (error as Error).message });
     }
@@ -389,7 +399,7 @@ export const cancelRide = async (req: AuthRequest, res: Response) => {
             await WalletService.debitWallet(userId, CANCELLATION_FEE, req.user.tenantId, `CANCEL_FEE_RIDE_${rideId}`);
             await WalletService.creditWallet(ride.driver.id, CANCELLATION_FEE, req.user.tenantId, `DRIVER_COMP_RIDE_${rideId}`);
             ride.cancellationFee = CANCELLATION_FEE;
-            responseMessage = `Ride cancelled. A $${CANCELLATION_FEE} fee was charged to compensate the driver.`;
+            responseMessage = `Ride cancelled. A ${formatMoney(CANCELLATION_FEE)} fee was charged to compensate the driver.`;
 
             await SentinelService.log(AuditAction.WALLET_DEBIT, userId, { rideId, amount: CANCELLATION_FEE, type: "CANCELLATION_PENALTY" });
             await SentinelService.log(AuditAction.WALLET_CREDIT, ride.driver.id, { rideId, amount: CANCELLATION_FEE, type: "DRIVER_COMPENSATION" });
@@ -423,6 +433,9 @@ export const getFareEstimate = async (req: AuthRequest, res: Response) => {
     if (!PricingService.isValidCoordinate(pickup) || !PricingService.isValidCoordinate(destination)) {
         return res.status(400).json({ message: "Valid pickup and destination coordinates are required" });
     }
+
+    const outside = serviceAreaError(pickup, destination);
+    if (outside) return res.status(400).json({ message: outside });
 
     const quote = PricingService.quote(pickup, destination, rideType, Number(seats) || 1);
     const tooFar = PricingService.distanceLimitError(quote.distanceKm, rideType);

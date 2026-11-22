@@ -15,7 +15,7 @@ export default function InvoiceScreen({ route, navigation }: any) {
             invoiceNumber: "INV-8B2F9A1C",
             date: "2026-02-02",
             rideDetails: { from: "Central Park", to: "Empire State", distance: "5.2 km" },
-            financials: { baseFare: 15.00, tax: 0.75, serviceFee: 1.50, total: 17.25, currency: "USD" }
+            financials: { baseFare: 15.00, tax: 0.75, serviceFee: 1.50, total: 17.25, currency: "INR" }
         });
     }, [rideId]);
 
@@ -50,22 +50,22 @@ export default function InvoiceScreen({ route, navigation }: any) {
                     <Title style={styles.sectionTitle}>Fare Breakdown</Title>
                     <View style={styles.row}>
                         <Text>Base Fare</Text>
-                        <Text>${invoice.financials.baseFare.toFixed(2)}</Text>
+                        <Text>{CurrencyFormatter.format(invoice.financials.baseFare)}</Text>
                     </View>
                     <View style={styles.row}>
                         <Text>Tax (GST/VAT)</Text>
-                        <Text>${invoice.financials.tax.toFixed(2)}</Text>
+                        <Text>{CurrencyFormatter.format(invoice.financials.tax)}</Text>
                     </View>
                     <View style={styles.row}>
                         <Text>Service Fee</Text>
-                        <Text>${invoice.financials.serviceFee.toFixed(2)}</Text>
+                        <Text>{CurrencyFormatter.format(invoice.financials.serviceFee)}</Text>
                     </View>
 
                     <Divider style={styles.divider} />
 
                     <View style={styles.totalRow}>
                         <Title>Total Paid</Title>
-                        <Title style={styles.totalAmount}>${invoice.financials.total.toFixed(2)}</Title>
+                        <Title style={styles.totalAmount}>{CurrencyFormatter.format(invoice.financials.total)}</Title>
                     </View>
                 </Card.Content>
             </Card>

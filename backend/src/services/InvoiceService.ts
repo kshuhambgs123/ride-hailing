@@ -1,6 +1,7 @@
 import { AppDataSource } from "../data-source";
 import { Ride } from "../entities/Ride";
 import { Transaction, TransactionStatus } from "../entities/Transaction";
+import { MARKET } from "../config/market";
 
 export class InvoiceService {
     static async generateInvoiceData(rideId: string) {
@@ -40,7 +41,7 @@ export class InvoiceService {
                 tax: totalTax,
                 serviceFee: totalFees,
                 total: totalPaid || Number(ride.fare),
-                currency: "USD"
+                currency: MARKET.currency
             }
         };
     }

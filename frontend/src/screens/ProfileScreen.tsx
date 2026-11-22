@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { View, StyleSheet } from "react-native";
 import { Title, Avatar, List, Button, Card, Paragraph } from "react-native-paper";
 import api from "../api/axios";
+import { CurrencyFormatter } from "../utils/CurrencyFormatter";
 
 export default function ProfileScreen({ navigation }: any) {
     const [user, setUser] = useState<any>({ displayName: "", phoneNumber: "...", walletBalance: 0, isKycVerified: false });
@@ -28,7 +29,7 @@ export default function ProfileScreen({ navigation }: any) {
             <Card style={styles.walletCard}>
                 <Card.Content>
                     <Paragraph>Wallet Balance</Paragraph>
-                    <Title style={styles.balance}>₹{user.walletBalance}</Title>
+                    <Title style={styles.balance}>{CurrencyFormatter.format(user.walletBalance)}</Title>
                     <Button mode="outlined" style={styles.addButton}>Add Money</Button>
                 </Card.Content>
             </Card>
