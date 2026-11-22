@@ -29,9 +29,12 @@ export class TrackingService {
         });
     }
 
-    static emitRideStatusUpdate(rideId: string, status: string) {
+    // Scoped to the ride's room (same room ChatService uses), not broadcast
+    // globally — only the passenger and driver on this specific ride ever
+    // join it, via `join_ride_chat`.
+    static emitRideStatusUpdate(rideId: string, status: string, extra: Record<string, unknown> = {}) {
         if (this.io) {
-            this.io.emit(`rideStatus:${rideId}`, { status });
+            this.io.to(rideId).emit(`rideStatus:${rideId}`, { status, ...extra });
         }
     }
 }

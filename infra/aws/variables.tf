@@ -104,6 +104,42 @@ variable "stripe_webhook_secret" {
   default     = ""
 }
 
+variable "razorpay_key_id" {
+  type    = string
+  default = ""
+}
+
+variable "razorpay_key_secret" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+
+variable "razorpay_webhook_secret" {
+  description = "From the Razorpay Dashboard webhook for this API's /api/webhooks/razorpay. Without it, Razorpay payments are never confirmed server-side."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "paypal_client_id" {
+  type    = string
+  default = ""
+}
+
+variable "paypal_client_secret" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+
+variable "paypal_webhook_id" {
+  description = "From developer.paypal.com > your app > Webhooks, for this API's /api/webhooks/paypal. Without it, PayPal payments are never confirmed server-side."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 variable "firebase_project_id" {
   type    = string
   default = ""

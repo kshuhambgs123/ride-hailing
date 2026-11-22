@@ -1,4 +1,4 @@
-import { PaymentProvider } from "./payment/PaymentProvider";
+import { CustomerInfo, PaymentProvider } from "./payment/PaymentProvider";
 import { StripeProvider } from "./payment/StripeProvider";
 import { RazorpayProvider } from "./payment/RazorpayProvider";
 import { PayPalProvider } from "./payment/PayPalProvider";
@@ -7,26 +7,58 @@ import { AppDataSource } from "../data-source";
 import { Transaction, TransactionType, TransactionStatus } from "../entities/Transaction";
 
 export class PaymentService {
-    private static providers: Record<string, PaymentProvider> = {
-        stripe: new StripeProvider(process.env.STRIPE_SECRET_KEY || "sk_test_..."),
-        razorpay: new RazorpayProvider(),
-        paypal: new PayPalProvider(),
-        cash: new UniversalProvider("cash"),
-        other: new UniversalProvider("other")
-    };
+    // Built lazily (not at module load) so the app can still boot when a
+    // gateway's credentials aren't configured yet — the clear error only
+    // surfaces when that specific provider is actually used, not for every
+    // request regardless of payment method.
+    private static instances: Partial<Record<string, PaymentProvider>> = {};
+
+    private static buildProvider(name: string): PaymentProvider {
+        switch (name) {
+            case "stripe":
+                if (!process.env.STRIPE_SECRET_KEY) throw new Error("STRIPE_SECRET_KEY not configured");
+                return new StripeProvider(process.env.STRIPE_SECRET_KEY);
+            case "razorpay":
+                if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+                    throw new Error("RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET not configured");
+                }
+                return new RazorpayProvider(process.env.RAZORPAY_KEY_ID, process.env.RAZORPAY_KEY_SECRET);
+            case "paypal":
+                if (!process.env.PAYPAL_CLIENT_ID || !process.env.PAYPAL_CLIENT_SECRET) {
+                    throw new Error("PAYPAL_CLIENT_ID / PAYPAL_CLIENT_SECRET not configured");
+                }
+                return new PayPalProvider(
+                    process.env.PAYPAL_CLIENT_ID,
+                    process.env.PAYPAL_CLIENT_SECRET,
+                    process.env.NODE_ENV === "production"
+                );
+            case "cash":
+            case "other":
+                return new UniversalProvider(name);
+            default:
+                return new UniversalProvider(name);
+        }
+    }
 
     static getProvider(name: string = "stripe"): PaymentProvider {
         const providerName = name.toLowerCase();
-        if (this.providers[providerName]) return this.providers[providerName];
-
-        // Dynamic provider for any other app
-        return new UniversalProvider(providerName);
+        if (!this.instances[providerName]) {
+            this.instances[providerName] = this.buildProvider(providerName);
+        }
+        return this.instances[providerName]!;
     }
 
-    static async createPaymentIntent(amount: number, currency: string = "usd", providerName: string = "stripe", rideId?: string, userId?: string) {
+    static async createPaymentIntent(
+        amount: number,
+        currency: string = "usd",
+        providerName: string = "stripe",
+        rideId?: string,
+        userId?: string,
+        customer?: CustomerInfo
+    ) {
         const provider = this.getProvider(providerName);
         try {
-            const result = await provider.createIntent(amount, currency);
+            const result = await provider.createIntent(amount, currency, customer);
 
             // Record as PENDING in ledger
             if (userId) {

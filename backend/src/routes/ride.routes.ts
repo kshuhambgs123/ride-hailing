@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requestRide, acceptRide, publishRide, searchRides, getSmartSuggestions, parseVoiceBooking, payRide, searchPlaces, getRecommendations, scheduleRide, cancelRide, getFareEstimate } from "../controllers/ride.controller";
+import { requestRide, acceptRide, getPendingRideRequests, publishRide, searchRides, getSmartSuggestions, parseVoiceBooking, payRide, confirmCashPayment, searchPlaces, getRecommendations, scheduleRide, cancelRide, getFareEstimate } from "../controllers/ride.controller";
 import { authMiddleware } from "../middleware/auth.middleware";
 
 const router = Router();
@@ -37,6 +37,15 @@ router.post("/request", authMiddleware, requestRide);
  *       - bearerAuth: []
  */
 router.post("/accept/:rideId", authMiddleware, acceptRide);
+
+/**
+ * @swagger
+ * /rides/pending:
+ *   get:
+ *     summary: List on-demand ride requests waiting for a driver
+ *     tags: [Rides]
+ */
+router.get("/pending", authMiddleware, getPendingRideRequests);
 
 /**
  * @swagger
@@ -82,6 +91,15 @@ router.post("/voice-parse", authMiddleware, parseVoiceBooking);
  *     tags: [Rides]
  */
 router.post("/pay", authMiddleware, payRide);
+
+/**
+ * @swagger
+ * /rides/confirm-cash/{rideId}:
+ *   post:
+ *     summary: Driver confirms they received cash for this ride
+ *     tags: [Rides]
+ */
+router.post("/confirm-cash/:rideId", authMiddleware, confirmCashPayment);
 
 /**
  * @swagger

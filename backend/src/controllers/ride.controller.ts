@@ -1,7 +1,9 @@
 import { Response } from "express";
+import { IsNull } from "typeorm";
 import { AuthRequest } from "../middleware/auth.middleware";
 import { AppDataSource } from "../data-source";
-import { Ride, RideStatus } from "../entities/Ride";
+import { Ride, RideStatus, PaymentStatus } from "../entities/Ride";
+import { TrackingService } from "../services/TrackingService";
 import { User } from "../entities/User";
 import { MatchmakingService } from "../services/MatchmakingService";
 import { SuggestionService } from "../services/SuggestionService";
@@ -14,6 +16,7 @@ import { SentinelService } from "../services/SentinelService";
 import { PricingService } from "../services/PricingService";
 import { SchedulingService } from "../services/SchedulingService";
 import { AuditAction } from "../entities/AuditLog";
+import { Transaction, TransactionType, TransactionStatus } from "../entities/Transaction";
 
 export const requestRide = async (req: AuthRequest, res: Response) => {
     const rideRepository = AppDataSource.getRepository(Ride);
@@ -43,7 +46,60 @@ export const requestRide = async (req: AuthRequest, res: Response) => {
 };
 
 export const acceptRide = async (req: AuthRequest, res: Response) => {
-    // ... (keep existing)
+    const rideRepository = AppDataSource.getRepository(Ride);
+    const userRepository = AppDataSource.getRepository(User);
+    const { rideId } = req.params as { rideId: string };
+    const driverId = req.user.id;
+
+    try {
+        const driver = await userRepository.findOneBy({ id: driverId });
+        if (!driver) return res.status(404).json({ message: "Driver not found" });
+
+        // Conditional UPDATE (not read-then-write) so two drivers racing to
+        // accept the same request can't both succeed — only the first
+        // UPDATE matching "still pending, no driver yet" affects a row.
+        const result = await rideRepository.createQueryBuilder()
+            .update(Ride)
+            .set({ driver, status: RideStatus.ACCEPTED })
+            .where("id = :rideId", { rideId })
+            .andWhere("status = :pending", { pending: RideStatus.PENDING })
+            .andWhere("driverId IS NULL")
+            .execute();
+
+        if (!result.affected) {
+            return res.status(409).json({ message: "Ride is no longer available" });
+        }
+
+        const ride = await rideRepository.findOne({ where: { id: rideId }, relations: ["passenger", "driver"] });
+
+        TrackingService.emitRideStatusUpdate(rideId, "accepted", {
+            driverId: driver.id,
+            driverName: driver.displayName || "Your driver",
+        });
+
+        res.json(ride);
+    } catch (error) {
+        res.status(500).json({ message: "Error accepting ride", error });
+    }
+};
+
+export const getPendingRideRequests = async (req: AuthRequest, res: Response) => {
+    const rideRepository = AppDataSource.getRepository(Ride);
+
+    try {
+        // Carpool offers (created via /publish) always have a driver already
+        // set, so filtering on driver IS NULL here naturally returns only
+        // on-demand requests waiting to be matched.
+        const requests = await rideRepository.find({
+            where: { status: RideStatus.PENDING, driver: IsNull() },
+            relations: ["passenger"],
+            order: { createdAt: "ASC" },
+            take: 50,
+        });
+        res.json(requests);
+    } catch (error) {
+        res.status(500).json({ message: "Error fetching ride requests", error });
+    }
 };
 
 export const publishRide = async (req: AuthRequest, res: Response) => {
@@ -135,9 +191,10 @@ export const parseVoiceBooking = async (req: AuthRequest, res: Response) => {
 };
 
 export const payRide = async (req: AuthRequest, res: Response) => {
-    const { rideId, amount, provider } = req.body;
+    const { rideId, provider } = req.body;
     const userId = req.user.id;
     const rideRepo = AppDataSource.getRepository(Ride);
+    const userRepo = AppDataSource.getRepository(User);
 
     try {
         const ride = await rideRepo.findOneBy({ id: rideId });
@@ -158,11 +215,87 @@ export const payRide = async (req: AuthRequest, res: Response) => {
             });
         }
 
-        // External providers
-        const result = await PaymentService.createPaymentIntent(remainingToPay, "usd", provider, rideId, userId);
+        if (provider === "cash") {
+            // Cash changes hands directly between rider and driver, so the
+            // rider alone selecting it here is not proof it was paid —
+            // paymentStatus stays PENDING until the driver confirms receipt
+            // (confirmCashPayment below). This just records the intent and
+            // tells the driver's app what to expect and show its "Confirm
+            // Cash Received" action for.
+            ride.paymentMethod = "cash";
+            await rideRepo.save(ride);
+
+            TrackingService.emitRideStatusUpdate(rideId, "cash_selected", {
+                amount: remainingToPay,
+            });
+
+            return res.json({ message: `Pay the driver $${remainingToPay.toFixed(2)} in cash at the end of your trip.` });
+        }
+
+        // External gateways — the response only carries a pending intent /
+        // checkout link; paymentStatus only ever moves to "paid" via that
+        // gateway's webhook (see webhook.controller.ts), never from here.
+        const payer = await userRepo.findOneBy({ id: userId });
+        const defaultCurrency = provider === "razorpay" ? "INR" : "USD";
+        const result = await PaymentService.createPaymentIntent(
+            remainingToPay,
+            defaultCurrency,
+            provider,
+            rideId,
+            userId,
+            { name: payer?.displayName, contact: payer?.phoneNumber }
+        );
         res.json(result);
     } catch (error) {
         res.status(500).json({ message: "Payment failed", error: (error as Error).message });
+    }
+};
+
+// Driver-only: the one place a cash ride is actually allowed to move from
+// PENDING to PAID. Scoped to whoever is assigned as this ride's driver —
+// not just "any driver" — so a rider can't call this themselves and a
+// different driver can't falsely confirm someone else's cash collection.
+export const confirmCashPayment = async (req: AuthRequest, res: Response) => {
+    const { rideId } = req.params as { rideId: string };
+    const driverId = req.user.id;
+    const rideRepo = AppDataSource.getRepository(Ride);
+
+    try {
+        const ride = await rideRepo.findOne({ where: { id: rideId }, relations: ["driver", "passenger"] });
+        if (!ride) return res.status(404).json({ message: "Ride not found" });
+        if (ride.driver?.id !== driverId) {
+            return res.status(403).json({ message: "Only this ride's assigned driver can confirm payment" });
+        }
+        if (ride.paymentMethod !== "cash") {
+            return res.status(409).json({ message: "This ride was not set up for cash payment" });
+        }
+        if (ride.paymentStatus === PaymentStatus.PAID) {
+            return res.status(409).json({ message: "Already confirmed" });
+        }
+
+        const depositPaid = Number(ride.schedulingFee) || 0;
+        const remainingToPay = Math.max(0, Number(ride.fare) - depositPaid);
+
+        ride.paymentStatus = PaymentStatus.PAID;
+        await rideRepo.save(ride);
+
+        const txRepo = AppDataSource.getRepository(Transaction);
+        await txRepo.save(txRepo.create({
+            user: { id: ride.passenger?.id },
+            ride: { id: rideId },
+            type: TransactionType.CASH,
+            grossAmount: remainingToPay,
+            netAmount: remainingToPay,
+            currency: "usd",
+            status: TransactionStatus.COMPLETED,
+            provider: "cash",
+        }));
+
+        TrackingService.emitRideStatusUpdate(rideId, "cash_confirmed", { amount: remainingToPay });
+
+        res.json({ message: `Confirmed: $${remainingToPay.toFixed(2)} received in cash.` });
+    } catch (error) {
+        res.status(500).json({ message: "Error confirming cash payment", error: (error as Error).message });
     }
 };
 

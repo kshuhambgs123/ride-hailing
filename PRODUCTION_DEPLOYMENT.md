@@ -53,6 +53,12 @@ cp terraform.tfvars.example terraform.tfvars   # edit non-secret values
 export TF_VAR_jwt_secret="$(openssl rand -hex 32)"
 export TF_VAR_stripe_secret_key="sk_live_..."
 export TF_VAR_stripe_webhook_secret="whsec_..."   # see step 3 — you'll come back and set this
+export TF_VAR_razorpay_key_id="rzp_live_..."      # omit entirely if not offering Razorpay
+export TF_VAR_razorpay_key_secret="..."
+export TF_VAR_razorpay_webhook_secret="..."        # see step 3
+export TF_VAR_paypal_client_id="..."               # omit entirely if not offering PayPal
+export TF_VAR_paypal_client_secret="..."
+export TF_VAR_paypal_webhook_id="..."              # see step 3
 export TF_VAR_firebase_project_id="..."
 export TF_VAR_firebase_client_email="..."
 export TF_VAR_firebase_private_key="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
@@ -101,6 +107,28 @@ PaymentIntent is never enough on its own.
 
 Skipping this step means card payments stay stuck at `paymentStatus:
 "pending"` forever, regardless of whether Stripe actually charged the card.
+
+**Razorpay** — same reasoning, same consequence if skipped:
+1. Dashboard → Settings → Webhooks → Add webhook:
+   `https://<your-api-domain>/api/webhooks/razorpay`, subscribed to
+   `payment_link.paid`, `payment_link.cancelled`, `payment_link.expired`.
+2. Set the secret you choose there as `TF_VAR_razorpay_webhook_secret` and
+   `terraform apply` again.
+
+**PayPal** — also use real keys, never credentials pasted into chat or
+committed to the repo:
+1. developer.paypal.com → your app → Webhooks → Add webhook:
+   `https://<your-api-domain>/api/webhooks/paypal`, subscribed to
+   `CHECKOUT.ORDER.APPROVED`, `PAYMENT.CAPTURE.COMPLETED`,
+   `PAYMENT.CAPTURE.DENIED`.
+2. Set the webhook's ID as `TF_VAR_paypal_webhook_id` and `terraform apply`
+   again. (PayPal verifies webhooks via an API call using this ID, not a
+   local HMAC — see `backend/src/services/payment/PayPalProvider.ts`.)
+
+If you're not offering Razorpay or PayPal, just leave those `TF_VAR_*`
+vars unset — `backend/src/services/PaymentService.ts` only constructs a
+gateway's client (and only then errors if misconfigured) the first time
+that specific payment method is actually used, never at startup.
 
 ## 4. CI/CD (GitHub Actions)
 

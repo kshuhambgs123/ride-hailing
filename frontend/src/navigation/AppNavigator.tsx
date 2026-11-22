@@ -14,6 +14,7 @@ import PreferencesScreen from '../screens/PreferencesScreen';
 import SOSScreen from '../screens/SOSScreen';
 import AchievementsScreen from '../screens/AchievementsScreen';
 import DriverVerificationScreen from '../screens/DriverVerificationScreen';
+import DriverHomeScreen from '../screens/DriverHomeScreen';
 import InvoiceScreen from '../screens/InvoiceScreen';
 import WalletScreen from '../screens/WalletScreen';
 
@@ -57,6 +58,7 @@ export default function AppNavigator() {
             <Stack.Navigator initialRouteName="Login">
                 <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="Home" component={MainTabs} options={{ headerShown: false }} />
+                <Stack.Screen name="DriverHome" component={DriverHomeScreen} options={{ title: "Driver" }} />
                 <Stack.Screen name="Payment" component={PaymentScreen} />
                 <Stack.Screen name="Admin" component={AdminDashboard} />
                 <Stack.Screen name="Referral" component={ReferralScreen} />

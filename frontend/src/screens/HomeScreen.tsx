@@ -1,12 +1,21 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { View, StyleSheet, Dimensions, ScrollView, Alert, Platform, Animated } from "react-native";
 import MapView, { Marker, Polyline } from "react-native-maps";
 import { Button, Card, Title, Paragraph, Avatar, IconButton, Searchbar, List, Portal, Modal, Text } from "react-native-paper";
 import * as Location from "expo-location";
+import { io } from "socket.io-client";
 import { CurrencyFormatter } from "../utils/CurrencyFormatter";
 import * as Speech from 'expo-speech';
 import api from "../api/axios";
-import { EcosystemService, PhantomDriver } from "../services/EcosystemService";
+import { BASE_URL as SOCKET_URL } from "../api/config";
+import { getAuthToken } from "../api/session";
+
+type ActiveRide = {
+    id: string;
+    status: "pending" | "accepted";
+    driverId?: string;
+    driverName?: string;
+};
 
 export default function HomeScreen({ navigation }: any) {
     const [location, setLocation] = useState<any>(null);
@@ -14,7 +23,7 @@ export default function HomeScreen({ navigation }: any) {
     const [searchResults, setSearchResults] = useState<any[]>([]);
     const [suggestions, setSuggestions] = useState<any[]>([]);
     const [recs, setRecs] = useState<any[]>([]);
-    const [phantomDrivers, setPhantomDrivers] = useState<PhantomDriver[]>([]);
+    const [activeRide, setActiveRide] = useState<ActiveRide | null>(null);
     const [isOnboarding, setIsOnboarding] = useState(false);
     const [onboardingStep, setOnboardingStep] = useState(0);
     const [seats, setSeats] = useState(1);
@@ -37,11 +46,26 @@ export default function HomeScreen({ navigation }: any) {
 
             let loc = await Location.getCurrentPositionAsync({});
             setLocation(loc);
-
-            // Generate phantom ecosystem
-            setPhantomDrivers(EcosystemService.getPhantomDrivers(loc.coords.latitude, loc.coords.longitude));
         })();
     }, []);
+
+    // Listens for the driver accepting this specific ride — scoped to the
+    // ride's own room (see backend/src/services/ChatService.ts), so this
+    // never leaks other riders' ride status.
+    useEffect(() => {
+        if (!activeRide?.id) return;
+
+        const socket = io(SOCKET_URL, { auth: { token: getAuthToken() } });
+        socket.emit("join_ride_chat", activeRide.id);
+        socket.on(`rideStatus:${activeRide.id}`, (data: { status: string; driverId?: string; driverName?: string }) => {
+            setActiveRide((prev) => (prev ? { ...prev, ...data } as ActiveRide : prev));
+            if (data.status === "accepted") {
+                speak(`${data.driverName || "Your driver"} accepted your ride.`);
+            }
+        });
+
+        return () => { socket.disconnect(); };
+    }, [activeRide?.id]);
 
     useEffect(() => {
         const fetchIntent = async () => {
@@ -91,9 +115,33 @@ export default function HomeScreen({ navigation }: any) {
         if (isInclusionMode) Speech.speak(text);
     };
 
-    const handleRequestRide = () => {
+    const handleRequestRide = async () => {
+        if (!location) {
+            Alert.alert("Error", "Still getting your location — try again in a moment.");
+            return;
+        }
+
         speak("Searching for the best driver for you.");
-        navigation.navigate("Payment", { amount: 25 * seats });
+        let newRideId: string;
+        try {
+            const response = await api.post("/rides/request", {
+                pickupLat: location.coords.latitude,
+                pickupLng: location.coords.longitude,
+                destinationLat: destination?.lat || 40.758896,
+                destinationLng: destination?.lng || -73.985130,
+                fare: estimatedFare || 25 * seats,
+            });
+            newRideId = response.data.id;
+            setActiveRide({ id: newRideId, status: "pending" });
+        } catch (error) {
+            console.error("Request ride failed:", error);
+            Alert.alert("Error", "Couldn't request a ride right now. Please try again.");
+            return;
+        }
+
+        // Without rideId here, every call to /rides/pay was silently
+        // hitting the backend with an empty ride id and could never settle.
+        navigation.navigate("Payment", { amount: 25 * seats, rideId: newRideId });
     };
 
     const handleInclusionToggle = () => {
@@ -219,13 +267,6 @@ export default function HomeScreen({ navigation }: any) {
                     }}
                 >
                     {location && <Marker coordinate={location.coords} title="You" />}
-                    {phantomDrivers.map(d => (
-                        <Marker
-                            key={d.id}
-                            coordinate={{ latitude: d.lat, longitude: d.lng }}
-                            image={require('../../assets/car_icon.png')} // Assuming asset exists
-                        />
-                    ))}
                 </MapView>
             )}
 
@@ -337,7 +378,17 @@ export default function HomeScreen({ navigation }: any) {
                         )}
                     </View>
                     <View style={styles.row}>
-                        <Button icon="map-marker-radius" mode="outlined" onPress={() => navigation.navigate("LiveTracking")}>Tracking</Button>
+                        <Button
+                            icon="map-marker-radius"
+                            mode="outlined"
+                            disabled={!activeRide?.driverId}
+                            onPress={() => navigation.navigate("LiveTracking", {
+                                driverId: activeRide?.driverId,
+                                driverName: activeRide?.driverName,
+                            })}
+                        >
+                            {activeRide?.driverId ? "Track Driver" : activeRide ? "Waiting for driver…" : "Tracking"}
+                        </Button>
                         <IconButton
                             icon={isInclusionMode ? "eye-off" : "eye"}
                             mode="contained"

@@ -22,7 +22,9 @@
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Volo needs background location during an active trip so the driver and rider can share live location for safety and accurate tracking.",
         "NSCameraUsageDescription": "Volo uses your camera to capture your ID document for driver verification (KYC).",
         "NSPhotoLibraryUsageDescription": "Volo needs access to your photo library to upload your ID document for driver verification (KYC).",
-        "UIBackgroundModes": ["location"]
+        "UIBackgroundModes": [
+          "location"
+        ]
       }
     },
     "android": {
@@ -58,7 +60,8 @@
           "photosPermission": "Volo needs access to your photo library to upload your ID document for driver verification (KYC).",
           "cameraPermission": "Volo uses your camera to capture your ID document for driver verification (KYC)."
         }
-      ]
+      ],
+      "expo-web-browser"
     ]
   }
 }

@@ -18,6 +18,12 @@ variable "route53_zone_id" { type = string }
 variable "jwt_secret" { type = string }
 variable "stripe_secret_key" { type = string }
 variable "stripe_webhook_secret" { type = string }
+variable "razorpay_key_id" { type = string }
+variable "razorpay_key_secret" { type = string }
+variable "razorpay_webhook_secret" { type = string }
+variable "paypal_client_id" { type = string }
+variable "paypal_client_secret" { type = string }
+variable "paypal_webhook_id" { type = string }
 variable "firebase_project_id" { type = string }
 variable "firebase_client_email" { type = string }
 variable "firebase_private_key" { type = string }
@@ -222,10 +228,16 @@ resource "aws_secretsmanager_secret" "app" {
 resource "aws_secretsmanager_secret_version" "app" {
   secret_id = aws_secretsmanager_secret.app.id
   secret_string = jsonencode({
-    JWT_SECRET            = var.jwt_secret
-    STRIPE_SECRET_KEY     = var.stripe_secret_key
-    STRIPE_WEBHOOK_SECRET = var.stripe_webhook_secret
-    FIREBASE_PROJECT_ID   = var.firebase_project_id
+    JWT_SECRET              = var.jwt_secret
+    STRIPE_SECRET_KEY       = var.stripe_secret_key
+    STRIPE_WEBHOOK_SECRET   = var.stripe_webhook_secret
+    RAZORPAY_KEY_ID         = var.razorpay_key_id
+    RAZORPAY_KEY_SECRET     = var.razorpay_key_secret
+    RAZORPAY_WEBHOOK_SECRET = var.razorpay_webhook_secret
+    PAYPAL_CLIENT_ID        = var.paypal_client_id
+    PAYPAL_CLIENT_SECRET    = var.paypal_client_secret
+    PAYPAL_WEBHOOK_ID       = var.paypal_webhook_id
+    FIREBASE_PROJECT_ID     = var.firebase_project_id
     FIREBASE_CLIENT_EMAIL = var.firebase_client_email
     FIREBASE_PRIVATE_KEY  = var.firebase_private_key
   })
@@ -343,6 +355,12 @@ resource "aws_ecs_task_definition" "backend" {
       { name = "JWT_SECRET", valueFrom = "${aws_secretsmanager_secret.app.arn}:JWT_SECRET::" },
       { name = "STRIPE_SECRET_KEY", valueFrom = "${aws_secretsmanager_secret.app.arn}:STRIPE_SECRET_KEY::" },
       { name = "STRIPE_WEBHOOK_SECRET", valueFrom = "${aws_secretsmanager_secret.app.arn}:STRIPE_WEBHOOK_SECRET::" },
+      { name = "RAZORPAY_KEY_ID", valueFrom = "${aws_secretsmanager_secret.app.arn}:RAZORPAY_KEY_ID::" },
+      { name = "RAZORPAY_KEY_SECRET", valueFrom = "${aws_secretsmanager_secret.app.arn}:RAZORPAY_KEY_SECRET::" },
+      { name = "RAZORPAY_WEBHOOK_SECRET", valueFrom = "${aws_secretsmanager_secret.app.arn}:RAZORPAY_WEBHOOK_SECRET::" },
+      { name = "PAYPAL_CLIENT_ID", valueFrom = "${aws_secretsmanager_secret.app.arn}:PAYPAL_CLIENT_ID::" },
+      { name = "PAYPAL_CLIENT_SECRET", valueFrom = "${aws_secretsmanager_secret.app.arn}:PAYPAL_CLIENT_SECRET::" },
+      { name = "PAYPAL_WEBHOOK_ID", valueFrom = "${aws_secretsmanager_secret.app.arn}:PAYPAL_WEBHOOK_ID::" },
       { name = "FIREBASE_PROJECT_ID", valueFrom = "${aws_secretsmanager_secret.app.arn}:FIREBASE_PROJECT_ID::" },
       { name = "FIREBASE_CLIENT_EMAIL", valueFrom = "${aws_secretsmanager_secret.app.arn}:FIREBASE_CLIENT_EMAIL::" },
       { name = "FIREBASE_PRIVATE_KEY", valueFrom = "${aws_secretsmanager_secret.app.arn}:FIREBASE_PRIVATE_KEY::" },

@@ -35,30 +35,36 @@ module "storage" {
 }
 
 module "ecs" {
-  source                 = "./modules/ecs"
-  project                = var.project
-  environment            = var.environment
-  vpc_id                 = module.network.vpc_id
-  public_subnet_ids      = module.network.public_subnet_ids
-  private_subnet_ids     = module.network.private_subnet_ids
-  container_port         = var.backend_container_port
-  desired_count          = var.backend_desired_count
-  cpu                    = var.backend_cpu
-  memory                 = var.backend_memory
-  image                  = var.backend_image != "" ? var.backend_image : "public.ecr.aws/docker/library/nginx:latest" # placeholder until first image push
-  db_secret_arn          = module.database.secret_arn
-  s3_bucket_arn          = module.storage.bucket_arn
-  s3_bucket_name         = module.storage.bucket_name
-  aws_region             = var.aws_region
-  redis_primary_endpoint = module.redis.primary_endpoint
-  domain_name            = var.domain_name
-  route53_zone_id        = var.route53_zone_id
-  jwt_secret             = var.jwt_secret
-  stripe_secret_key      = var.stripe_secret_key
-  stripe_webhook_secret  = var.stripe_webhook_secret
-  firebase_project_id    = var.firebase_project_id
-  firebase_client_email  = var.firebase_client_email
-  firebase_private_key   = var.firebase_private_key
+  source                  = "./modules/ecs"
+  project                 = var.project
+  environment             = var.environment
+  vpc_id                  = module.network.vpc_id
+  public_subnet_ids       = module.network.public_subnet_ids
+  private_subnet_ids      = module.network.private_subnet_ids
+  container_port          = var.backend_container_port
+  desired_count           = var.backend_desired_count
+  cpu                     = var.backend_cpu
+  memory                  = var.backend_memory
+  image                   = var.backend_image != "" ? var.backend_image : "public.ecr.aws/docker/library/nginx:latest" # placeholder until first image push
+  db_secret_arn           = module.database.secret_arn
+  s3_bucket_arn           = module.storage.bucket_arn
+  s3_bucket_name          = module.storage.bucket_name
+  aws_region              = var.aws_region
+  redis_primary_endpoint  = module.redis.primary_endpoint
+  domain_name             = var.domain_name
+  route53_zone_id         = var.route53_zone_id
+  jwt_secret              = var.jwt_secret
+  stripe_secret_key       = var.stripe_secret_key
+  stripe_webhook_secret   = var.stripe_webhook_secret
+  razorpay_key_id         = var.razorpay_key_id
+  razorpay_key_secret     = var.razorpay_key_secret
+  razorpay_webhook_secret = var.razorpay_webhook_secret
+  paypal_client_id        = var.paypal_client_id
+  paypal_client_secret    = var.paypal_client_secret
+  paypal_webhook_id       = var.paypal_webhook_id
+  firebase_project_id     = var.firebase_project_id
+  firebase_client_email   = var.firebase_client_email
+  firebase_private_key    = var.firebase_private_key
 }
 
 module "github_oidc" {

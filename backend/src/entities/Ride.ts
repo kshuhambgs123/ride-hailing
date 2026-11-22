@@ -89,6 +89,13 @@ export class Ride {
     })
     paymentStatus!: PaymentStatus;
 
+    // Set when the rider picks "cash" in PaymentScreen — paymentStatus stays
+    // PENDING until the driver confirms they actually received it (see
+    // confirmCashPayment in ride.controller.ts). Every other method instead
+    // settles via its own gateway webhook, so this column only matters for cash.
+    @Column({ nullable: true })
+    paymentMethod?: string;
+
     @Column({ nullable: true })
     distance?: string;
 

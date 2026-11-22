@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, TextInput as RNTextInput } from 'react-native';
 import { Button, Card, Title, Paragraph, List, RadioButton, Avatar, Text, TextInput } from "react-native-paper";
+import * as WebBrowser from 'expo-web-browser';
 import api from "../api/axios";
 import { CurrencyFormatter } from "../utils/CurrencyFormatter";
 
@@ -14,16 +15,32 @@ export default function PaymentScreen({ route, navigation }: any) {
         setLoading(true);
         try {
             const finalProvider = method === 'other' ? customApp : method;
-            await api.post('/rides/pay', {
+            const response = await api.post('/rides/pay', {
                 rideId,
                 amount,
                 provider: finalProvider
             });
 
-            alert(`Payment initiated via ${finalProvider.toUpperCase()}. Please complete the transaction.`);
+            if (response.data.checkoutUrl) {
+                // Razorpay/PayPal: a hosted page, opened in the system
+                // browser — no card details ever pass through this app.
+                // Closing the browser is NOT proof of payment; only that
+                // gateway's webhook (server-side) actually confirms it, so
+                // this is deliberately phrased as "if", not "you paid".
+                await WebBrowser.openBrowserAsync(response.data.checkoutUrl);
+                alert("If you completed the payment, it'll be confirmed shortly.");
+            } else if (response.data.message) {
+                // Wallet: settled synchronously by the backend already.
+                // Cash: just records intent — the driver still has to
+                // confirm receipt before the ride actually counts as paid.
+                alert(response.data.message);
+            } else {
+                alert(`Payment initiated via ${finalProvider.toUpperCase()}.`);
+            }
+
             navigation.navigate("History");
-        } catch (error) {
-            alert("Payment failed.");
+        } catch (error: any) {
+            alert(error?.response?.data?.message || "Payment failed.");
         } finally {
             setLoading(false);
         }

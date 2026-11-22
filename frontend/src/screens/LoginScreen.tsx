@@ -48,7 +48,11 @@ export default function LoginScreen({ navigation }: any) {
 
             const response = await api.post("/auth/verify-otp", { idToken, role });
             setAuthToken(response.data.token);
-            navigation.navigate("Home", {
+            // The account's actual stored role is authoritative (an existing
+            // account keeps its original role regardless of what this login
+            // attempt requested).
+            const destination = response.data.user?.role === "driver" ? "DriverHome" : "Home";
+            navigation.navigate(destination, {
                 isNewUser: response.data.isNewUser,
                 currentUserId: response.data.user?.id,
             });
