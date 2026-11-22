@@ -1,7 +1,7 @@
 import { AppDataSource } from "../data-source";
 import { Ride, RideStatus, RideType } from "../entities/Ride";
 import { WalletService } from "./WalletService";
-import { PricingService } from "./PricingService";
+import { PricingService, TripValidationError } from "./PricingService";
 import { SentinelService } from "./SentinelService";
 import { AuditAction } from "../entities/AuditLog";
 
@@ -74,11 +74,13 @@ export class SchedulingService {
         // Validated before the deposit is taken, so a bad request can't
         // charge the rider for a ride that then fails to be created.
         if (!PricingService.isValidCoordinate(pickup) || !PricingService.isValidCoordinate(destination)) {
-            throw new Error("Valid pickup and destination coordinates are required");
+            throw new TripValidationError("Valid pickup and destination coordinates are required");
         }
         // Priced server-side, same as an on-demand request — a fare sent by
         // the app is never trusted.
         const quote = PricingService.quote(pickup, destination, "local", 1);
+        const tooFar = PricingService.distanceLimitError(quote.distanceKm, "local");
+        if (tooFar) throw new TripValidationError(tooFar);
 
         const SCHEDULING_FEE = data.payDeposit ? 1.00 : 0;
 

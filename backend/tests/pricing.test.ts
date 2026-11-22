@@ -78,3 +78,20 @@ describe("PricingService", () => {
         expect(PricingService.isValidCoordinate(undefined)).toBe(false);
     });
 });
+
+describe("PricingService distance limits", () => {
+    test("allows trips within the limit", () => {
+        expect(PricingService.distanceLimitError(99, "local")).toBeNull();
+        expect(PricingService.distanceLimitError(1200, "intercity")).toBeNull();
+    });
+
+    test("rejects trips over the limit with a reason", () => {
+        expect(PricingService.distanceLimitError(150, "local")).toContain("up to 100 km");
+        expect(PricingService.distanceLimitError(2000, "intercity")).toContain("up to 1500 km");
+    });
+
+    test("Delhi to New York is rejected as a local ride", () => {
+        const q = PricingService.quote({ lat: 28.6315, lng: 77.2167 }, { lat: 40.7484, lng: -73.9857 });
+        expect(PricingService.distanceLimitError(q.distanceKm, "local")).not.toBeNull();
+    });
+});

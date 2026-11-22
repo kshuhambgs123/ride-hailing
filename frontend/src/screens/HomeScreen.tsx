@@ -35,6 +35,7 @@ export default function HomeScreen({ navigation }: any) {
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [estimatedFare, setEstimatedFare] = useState<number | null>(null);
     const [estimatedDistanceKm, setEstimatedDistanceKm] = useState<number | null>(null);
+    const [quoteError, setQuoteError] = useState<string | null>(null);
     const [destination, setDestination] = useState<any>(null);
     const [isScheduling, setIsScheduling] = useState(false);
     const [scheduledDate, setScheduledDate] = useState(new Date());
@@ -155,9 +156,9 @@ export default function HomeScreen({ navigation }: any) {
             newRideId = response.data.id;
             rideFare = Number(response.data.fare);
             setActiveRide({ id: newRideId, status: "pending" });
-        } catch (error) {
+        } catch (error: any) {
             console.error("Request ride failed:", error);
-            Alert.alert("Error", "Couldn't request a ride right now. Please try again.");
+            Alert.alert("Couldn't book this ride", error?.response?.data?.message || "Please try again.");
             return;
         }
 
@@ -229,9 +230,9 @@ export default function HomeScreen({ navigation }: any) {
                 payDeposit
             });
             Alert.alert("Volo Chronos", response.data.message);
-        } catch (error) {
+        } catch (error: any) {
             console.error("Schedule error:", error);
-            Alert.alert("Error", "Scheduling failed. Please try again.");
+            Alert.alert("Couldn't schedule this ride", error?.response?.data?.message || "Please try again.");
         }
     };
 
@@ -244,6 +245,7 @@ export default function HomeScreen({ navigation }: any) {
     // Re-quotes whenever pickup, destination or seat count changes, so the
     // price shown always matches what the server will charge for the request.
     useEffect(() => {
+        setQuoteError(null);
         if (!location || !destination) {
             setEstimatedFare(null);
             setEstimatedDistanceKm(null);
@@ -262,8 +264,11 @@ export default function HomeScreen({ navigation }: any) {
             setEstimatedFare(response.data.fare);
             setEstimatedDistanceKm(response.data.distanceKm);
         }).catch((error) => {
-            if (!cancelled) setEstimatedFare(null);
-            console.error("Fare estimate error:", error);
+            if (cancelled) return;
+            setEstimatedFare(null);
+            setEstimatedDistanceKm(null);
+            // e.g. "That's about 11700 km away — local rides can go up to 100 km."
+            setQuoteError(error?.response?.data?.message || "Couldn't get a fare for this trip.");
         });
         return () => { cancelled = true; };
     }, [location, destination, seats]);
@@ -375,6 +380,7 @@ export default function HomeScreen({ navigation }: any) {
                         <Button onPress={() => setSeats(Math.max(1, seats - 1))}>-</Button>
                         <Button onPress={() => setSeats(Math.min(4, seats + 1))}>+</Button>
                     </View>
+                    {quoteError && <Paragraph style={{ color: '#c62828', marginTop: 4 }}>{quoteError}</Paragraph>}
                 </Card.Content>
                 <Card.Actions style={{ flexDirection: 'column' }}>
                     {!isInclusionMode ? (
@@ -400,7 +406,7 @@ export default function HomeScreen({ navigation }: any) {
                                 ? "GO NOW"
                                 : estimatedFare != null
                                     ? `Confirm Ride (${CurrencyFormatter.format(estimatedFare)}${estimatedDistanceKm != null ? ` · ${estimatedDistanceKm} km` : ""})`
-                                    : destination ? "Getting fare…" : "Choose a destination"}
+                                    : quoteError ? "Can't book this trip" : destination ? "Getting fare…" : "Choose a destination"}
                         </Button>
                         {!isInclusionMode && (
                             <Button
@@ -565,34 +571,6 @@ export default function HomeScreen({ navigation }: any) {
                     </View>
                 </View>
             )}
-            {(!isOnboarding && !destination) && (
-                <View style={styles.discoveryBridge}>
-                    <Card style={styles.bridgeCard}>
-                        <Card.Content>
-                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                <Avatar.Icon icon="star-circle" size={40} style={{ backgroundColor: '#FFD700' }} />
-                                <View style={{ marginLeft: 15 }}>
-                                    <Title style={{ fontSize: 18, color: '#fff' }}>Use Your $10 Credit</Title>
-                                    <Paragraph style={{ color: '#aaa' }}>Ready for your first elite journey?</Paragraph>
-                                </View>
-                            </View>
-                            <Button
-                                mode="contained"
-                                buttonColor="#FFD700"
-                                textColor="#000"
-                                style={{ marginTop: 15 }}
-                                onPress={() => {
-                                    setSearchQuery("Empire State Building");
-                                    selectPlace({ lat: 40.7484, lng: -73.9857, label: "Empire State Building, NY" });
-                                    speak("Exquisite choice. I'm calculating the elite fare for the Empire State Building using your welcome credit.");
-                                }}
-                            >
-                                Visit Empire State Building
-                            </Button>
-                        </Card.Content>
-                    </Card>
-                </View>
-            )}
         </View>
     );
 }
@@ -622,6 +600,4 @@ const styles = StyleSheet.create({
     immersiveFooter: { position: 'absolute', bottom: 60, left: 20, right: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     discoveryContainer: { position: 'absolute', bottom: 200, left: 10, right: 0, zIndex: 10 },
     discoveryCard: { width: 150, marginRight: 10, borderRadius: 10, elevation: 3 },
-    discoveryBridge: { position: 'absolute', top: 130, left: 15, right: 15, zIndex: 5 },
-    bridgeCard: { backgroundColor: '#1a1a1a', borderRadius: 15, elevation: 10, borderWidth: 1, borderColor: '#333' }
 });

@@ -22,7 +22,17 @@ const RATES: Record<string, { base: number; perKm: number }> = {
 // usual rule of thumb for city driving. Replace estimateDistanceKm with a
 // routing service (Google Distance Matrix, OSRM) for real road distance.
 const ROAD_FACTOR = 1.3;
+
+// Longest trip each ride type will price. Beyond this a "local" quote is
+// almost certainly a bad pin or a demo location, not a real request.
+const MAX_DISTANCE_KM: Record<string, number> = {
+    local: 100,
+    intercity: 1500,
+};
 const EARTH_RADIUS_KM = 6371;
+
+// A trip the rider needs to fix (bad pin, too far) — map to HTTP 400, not 500.
+export class TripValidationError extends Error { }
 
 export class PricingService {
     static isValidCoordinate(p: Partial<LatLng> | undefined): p is LatLng {
@@ -43,6 +53,14 @@ export class PricingService {
 
     static estimateDistanceKm(pickup: LatLng, destination: LatLng): number {
         return Math.round(this.straightLineKm(pickup, destination) * ROAD_FACTOR * 100) / 100;
+    }
+
+    // Returns a rider-facing reason if the trip is too long to book, else null.
+    static distanceLimitError(distanceKm: number, rideType: string = "local"): string | null {
+        const type = MAX_DISTANCE_KM[rideType] ? rideType : "local";
+        const max = MAX_DISTANCE_KM[type];
+        if (distanceKm <= max) return null;
+        return `That's about ${Math.round(distanceKm)} km away — ${type} rides can go up to ${max} km.`;
     }
 
     static calculatePrice(distanceKm: number, rideType: string, seats: number = 1, surgeMultiplier: number = 1.0): number {

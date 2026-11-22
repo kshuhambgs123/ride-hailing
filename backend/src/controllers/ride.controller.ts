@@ -13,7 +13,7 @@ import { WalletService } from "../services/WalletService";
 import { LocationService } from "../services/LocationService";
 import { DiscoveryService } from "../services/DiscoveryService";
 import { SentinelService } from "../services/SentinelService";
-import { PricingService } from "../services/PricingService";
+import { PricingService, TripValidationError } from "../services/PricingService";
 import { SchedulingService } from "../services/SchedulingService";
 import { AuditAction } from "../entities/AuditLog";
 import { Transaction, TransactionType, TransactionStatus } from "../entities/Transaction";
@@ -38,6 +38,8 @@ export const requestRide = async (req: AuthRequest, res: Response) => {
         if (!passenger) return res.status(404).json({ message: "Passenger not found" });
 
         const quote = PricingService.quote(pickup, destination, rideType, Number(seats) || 1);
+        const tooFar = PricingService.distanceLimitError(quote.distanceKm, rideType);
+        if (tooFar) return res.status(400).json({ message: tooFar });
 
         const ride = rideRepository.create({
             tenantId: req.user.tenantId,
@@ -423,6 +425,8 @@ export const getFareEstimate = async (req: AuthRequest, res: Response) => {
     }
 
     const quote = PricingService.quote(pickup, destination, rideType, Number(seats) || 1);
+    const tooFar = PricingService.distanceLimitError(quote.distanceKm, rideType);
+    if (tooFar) return res.status(400).json({ message: tooFar, distanceKm: quote.distanceKm });
     res.json(quote);
 };
 
@@ -451,8 +455,7 @@ export const scheduleRide = async (req: AuthRequest, res: Response) => {
         const result = await SchedulingService.scheduleOneOffRide(userId, req.user.tenantId, req.body);
         res.status(201).json(result);
     } catch (error) {
-        const message = (error as Error).message;
-        if (message?.includes("coordinates")) return res.status(400).json({ message });
+        if (error instanceof TripValidationError) return res.status(400).json({ message: error.message });
         res.status(500).json({ message: "Failed to schedule ride", error });
     }
 };
