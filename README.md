@@ -27,6 +27,12 @@ cd backend && docker compose up --build
 cd frontend && npm install && npm start
 ```
 
+## Before you launch
+
+See **[LAUNCH_PREREQUISITES.md](LAUNCH_PREREQUISITES.md)** for everything to
+have in place before a Delhi NCR launch (company, licences, drivers, tax,
+privacy, app gaps) and how to apply for government startup benefits.
+
 ## User flows
 
 See **[USER_FLOWS.md](USER_FLOWS.md)** for diagrams of how riders, drivers,
