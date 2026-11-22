@@ -3,10 +3,11 @@ import { View, StyleSheet, ScrollView, TextInput, KeyboardAvoidingView, Platform
 import { Appbar, List, Avatar, Button, Text, Card, IconButton } from 'react-native-paper';
 import io from 'socket.io-client';
 import { BASE_URL as SOCKET_URL, TENANT_SLUG } from '../api/config';
-import { getAuthToken } from '../api/session';
+import { getAuthToken, getCurrentUser } from '../api/session';
 
 export default function ChatScreen({ route, navigation }: any) {
-    const { rideId, partnerName, partnerId, currentUserId } = route.params || {};
+    const { rideId, partnerName, partnerId } = route.params || {};
+    const currentUserId = getCurrentUser()?.id;
     const [messages, setMessages] = useState<any[]>([]);
     const [inputText, setInputText] = useState('');
     const socketRef = useRef<any>(null);
@@ -59,7 +60,9 @@ export default function ChatScreen({ route, navigation }: any) {
                         key={index}
                         style={[
                             styles.messageBubble,
-                            msg.senderId === currentUserId ? styles.myMessage : styles.partnerMessage
+                            // The server sends the saved Message entity, which carries
+                            // `sender: { id }`, not a flat senderId.
+                            msg.sender?.id === currentUserId ? styles.myMessage : styles.partnerMessage
                         ]}
                     >
                         <Text style={styles.messageText}>{msg.content}</Text>

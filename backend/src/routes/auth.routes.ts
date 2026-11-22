@@ -27,6 +27,7 @@ const router = express.Router();
  *         description: Login successful
  */
 router.post("/verify-otp", verifyOtp);
+router.get("/me", authMiddleware, getMe);
 router.post("/driver-verification", authMiddleware, driverVerification);
 
 export default router;

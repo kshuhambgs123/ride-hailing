@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, Dimensions, Animated } from 'react-native';
-import { TextInput, Button, Title, Card, Text, HelperText, Avatar, IconButton, ProgressBar } from 'react-native-paper';
+import { TextInput, Button, Title, Card, Text, HelperText, Avatar, IconButton, ProgressBar, Paragraph } from 'react-native-paper';
 import api from '../api/axios';
 import * as ImagePicker from 'expo-image-picker';
 import { API_URL } from '../api/config';
@@ -51,7 +51,10 @@ export default function DriverVerificationScreen({ navigation }: any) {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
 
-            setFormData({ ...formData, [field]: response.data.imageUrl });
+            // The upload returns `imageRef` (a private S3 key, or a local
+            // path in dev) — reading `imageUrl` silently saved nothing, so
+            // admins had no ID photo to review.
+            setFormData((prev: any) => ({ ...prev, [field]: response.data.imageRef }));
         } catch (error) {
             console.error(error);
             alert("Upload failed.");
@@ -64,7 +67,7 @@ export default function DriverVerificationScreen({ navigation }: any) {
         setLoading(true);
         try {
             await api.post('/auth/driver-verification', formData);
-            alert("Volo Elite Application Submitted! We are auditing your profile now.");
+            alert("Application submitted. You'll be able to drive once an admin approves it — log in again after approval.");
             navigation.goBack();
         } catch (error) {
             alert("Submission failed. Ensure all EBV requirements are met.");

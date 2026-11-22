@@ -82,8 +82,12 @@ export const login = async (req: Request, res: Response) => {
     res.json({ message: "Login successful" });
 };
 
+// Returns the stored account, not the decoded token — the token only holds
+// id/role/tenantId, and its role can be stale after a driver is approved.
 export const getMe = async (req: Request, res: Response) => {
-    const user = (req as any).user;
+    const { id, tenantId } = (req as any).user;
+    const user = await AppDataSource.getRepository(User).findOneBy({ id, tenantId });
+    if (!user) return res.status(404).json({ message: "User not found" });
     res.json(user);
 };
 
@@ -138,29 +142,37 @@ export const verifyEmail = async (req: Request, res: Response) => {
 export const driverVerification = async (req: Request, res: Response) => {
     const userId = (req as any).user.id;
     const verificationRepo = AppDataSource.getRepository(DriverVerification);
-    const userRepo = AppDataSource.getRepository(User);
 
-    const data = req.body;
+    // Only fields the applicant is allowed to supply. Copying req.body
+    // wholesale would let a client set isCriminalRecordChecked, status or
+    // rejectionReason itself, or re-point `user` at another account.
+    const {
+        licenseNumber, licenseCountry, licenseExpiry, frontIdUrl, backIdUrl, selfieUrl,
+        vehicleModel, vehiclePlateNumber, vehicleYear, insurancePolicyNumber, insuranceExpiry,
+        fitnessCertificateUrl,
+    } = req.body;
+    const data = {
+        licenseNumber, licenseCountry, licenseExpiry, frontIdUrl, backIdUrl, selfieUrl,
+        vehicleModel, vehiclePlateNumber, vehicleYear, insurancePolicyNumber, insuranceExpiry,
+        fitnessCertificateUrl,
+    };
 
-    // Create or Update Verification
     let verification = await verificationRepo.findOne({ where: { user: { id: userId } } });
+    if (verification?.status === VerificationStatus.APPROVED) {
+        return res.status(409).json({ message: "You're already an approved driver" });
+    }
     if (!verification) {
         verification = verificationRepo.create({ user: { id: userId } as any });
     }
 
-    Object.assign(verification, {
-        ...data,
-        status: VerificationStatus.PENDING,
-        appliedAt: new Date()
-    });
-
+    Object.assign(verification, data, { status: VerificationStatus.PENDING, rejectionReason: null });
     await verificationRepo.save(verification);
 
-    // Update user status
-    await userRepo.update(userId, { role: UserRole.DRIVER }); // Placeholder for promotion
+    // The account stays a rider until an admin approves this application
+    // (see admin.controller.ts) — submitting the form alone must never grant
+    // the ability to accept paid rides.
 
-    // Record Audit
-    await SentinelService.log(AuditAction.PROFILE_UPDATE, userId, { action: "DRIVER_VERIFICATION_SUBMIT", data });
+    await SentinelService.log(AuditAction.PROFILE_UPDATE, userId, { action: "DRIVER_VERIFICATION_SUBMIT" });
 
-    res.json({ message: "Verification application submitted", verification });
+    res.json({ message: "Application submitted. You'll be able to drive once it's approved.", verification });
 };

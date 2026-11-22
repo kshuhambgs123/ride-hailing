@@ -11,7 +11,7 @@ import { getAuthToken } from "../api/session";
 // "accepted" rideStatus event (see HomeScreen), so this only ever shows the
 // driver actually assigned to this ride.
 export default function LiveTrackingScreen({ navigation, route }: any) {
-    const { driverId, driverName } = route.params || {};
+    const { driverId, driverName, rideId } = route.params || {};
     const [position, setPosition] = useState<{ latitude: number; longitude: number } | null>(null);
 
     useEffect(() => {
@@ -30,7 +30,14 @@ export default function LiveTrackingScreen({ navigation, route }: any) {
         <View style={styles.container}>
             <View style={styles.header}>
                 <IconButton icon="arrow-left" onPress={() => navigation.goBack()} />
-                <Title>{driverName ? `Tracking ${driverName}` : "Live Tracking"}</Title>
+                <Title style={{ flex: 1 }}>{driverName ? `Tracking ${driverName}` : "Live Tracking"}</Title>
+                <IconButton
+                    icon="alert-octagon"
+                    mode="contained"
+                    containerColor="#ff5252"
+                    iconColor="#fff"
+                    onPress={() => navigation.navigate("SOS", { rideId })}
+                />
             </View>
             {!driverId ? (
                 <View style={[styles.map, styles.centered]}>

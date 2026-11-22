@@ -15,14 +15,9 @@ export default function HistoryScreen() {
     const [rides, setRides] = useState<Ride[]>([]);
 
     useEffect(() => {
-        api.get("/rides/passenger").then(res => setRides(res.data)).catch(() => {
-            // Mock data if API fails
-            const mockRides: Ride[] = [
-                { id: "1", fare: 450, createdAt: new Date().toISOString(), status: "COMPLETED" },
-                { id: "2", fare: 320, createdAt: new Date(Date.now() - 86400000).toISOString(), status: "COMPLETED" },
-            ];
-            setRides(mockRides);
-        });
+        // No mock trips on failure — showing rides that never happened (and
+        // a made-up spend total) is worse than an empty list.
+        api.get("/rides/passenger").then(res => setRides(res.data)).catch(() => setRides([]));
     }, []);
 
     return (

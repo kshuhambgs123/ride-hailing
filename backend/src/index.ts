@@ -16,6 +16,7 @@ import walletRoutes from "./routes/wallet.routes";
 import uploadRoutes from "./routes/upload.routes";
 import healthRoutes from "./routes/health.routes";
 import webhookRoutes from "./routes/webhook.routes";
+import adminRoutes from "./routes/admin.routes";
 import { sentinelShield } from "./middleware/sentinelShield";
 import path from "path";
 import { TrackingService } from "./services/TrackingService";
@@ -73,6 +74,7 @@ app.use("/api/reviews", resolveTenant, reviewRoutes);
 app.use("/api/platform", resolveTenant, platformRoutes);
 app.use("/api/wallet", resolveTenant, walletRoutes);
 app.use("/api/upload", resolveTenant, uploadRoutes);
+app.use("/api/admin", resolveTenant, adminRoutes);
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 // Initialize Services with Socket.io

@@ -17,6 +17,7 @@ import { PricingService } from "../services/PricingService";
 import { SchedulingService } from "../services/SchedulingService";
 import { AuditAction } from "../entities/AuditLog";
 import { Transaction, TransactionType, TransactionStatus } from "../entities/Transaction";
+import { Tenant } from "../entities/Tenant";
 
 export const requestRide = async (req: AuthRequest, res: Response) => {
     const rideRepository = AppDataSource.getRepository(Ride);
@@ -304,6 +305,52 @@ export const confirmCashPayment = async (req: AuthRequest, res: Response) => {
     } catch (error) {
         res.status(500).json({ message: "Error confirming cash payment", error: (error as Error).message });
     }
+};
+
+// Driver-only, and only this ride's assigned driver. Without this, finished
+// rides stayed "accepted" forever and the platform fee was never recorded.
+export const completeRide = async (req: AuthRequest, res: Response) => {
+    const { rideId } = req.params as { rideId: string };
+    const rideRepo = AppDataSource.getRepository(Ride);
+
+    try {
+        const ride = await rideRepo.findOne({ where: { id: rideId, tenantId: req.user.tenantId }, relations: ["driver"] });
+        if (!ride) return res.status(404).json({ message: "Ride not found" });
+        if (ride.driver?.id !== req.user.id) {
+            return res.status(403).json({ message: "Only this ride's assigned driver can complete it" });
+        }
+        if (ride.status !== RideStatus.ACCEPTED && ride.status !== RideStatus.ONGOING) {
+            return res.status(409).json({ message: `Ride is ${ride.status}, not in progress` });
+        }
+
+        // Commission comes from the operator's own rate (Tenant.commissionRate),
+        // not a hardcoded platform-wide percentage.
+        const tenant = await AppDataSource.getRepository(Tenant).findOneBy({ id: req.user.tenantId });
+        const rate = Number(tenant?.commissionRate ?? 0);
+
+        await AppDataSource.transaction(async (manager) => {
+            ride.status = RideStatus.COMPLETED;
+            ride.platformFee = Math.round(Number(ride.fare) * rate * 100) / 100;
+            await manager.save(ride);
+            await manager.increment(User, { id: req.user.id }, "completedRideCount", 1);
+        });
+
+        await SentinelService.log(AuditAction.RIDE_COMPLETED, req.user.id, { rideId, platformFee: ride.platformFee });
+        TrackingService.emitRideStatusUpdate(rideId, "completed");
+
+        res.json({ message: "Trip completed.", platformFee: ride.platformFee });
+    } catch (error) {
+        res.status(500).json({ message: "Error completing ride", error: (error as Error).message });
+    }
+};
+
+export const getMyRidesAsPassenger = async (req: AuthRequest, res: Response) => {
+    const rides = await AppDataSource.getRepository(Ride).find({
+        where: { passenger: { id: req.user.id }, tenantId: req.user.tenantId },
+        order: { createdAt: "DESC" },
+        take: 100,
+    });
+    res.json(rides);
 };
 
 export const cancelRide = async (req: AuthRequest, res: Response) => {

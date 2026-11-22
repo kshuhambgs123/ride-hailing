@@ -23,11 +23,12 @@ type RideRequest = {
 // driver on the other end instead of nothing at all.
 type CashState = { amount: number; confirmed: boolean } | null;
 
-export default function DriverHomeScreen() {
+export default function DriverHomeScreen({ navigation }: any) {
     const [requests, setRequests] = useState<RideRequest[]>([]);
     const [loading, setLoading] = useState(false);
     const [activeRideId, setActiveRideId] = useState<string | null>(null);
     const [cash, setCash] = useState<CashState>(null);
+    const [passenger, setPassenger] = useState<RideRequest["passenger"] | null>(null);
     const socketRef = useRef<Socket | null>(null);
     const watchRef = useRef<Location.LocationSubscription | null>(null);
 
@@ -59,7 +60,8 @@ export default function DriverHomeScreen() {
 
     const acceptRide = async (rideId: string) => {
         try {
-            await api.post(`/rides/accept/${rideId}`);
+            const res = await api.post(`/rides/accept/${rideId}`);
+            setPassenger(res.data?.passenger ?? null);
         } catch (error: any) {
             Alert.alert("Error", error?.response?.data?.message || "Couldn't accept this ride — it may already be taken.");
             loadRequests();
@@ -104,13 +106,42 @@ export default function DriverHomeScreen() {
         }
     };
 
-    const endTrip = () => {
+    const stopTrip = () => {
         watchRef.current?.remove();
         watchRef.current = null;
         socketRef.current?.disconnect();
         socketRef.current = null;
         setActiveRideId(null);
         setCash(null);
+        setPassenger(null);
+    };
+
+    const completeTrip = async () => {
+        if (!activeRideId) return;
+        try {
+            await api.post(`/rides/complete/${activeRideId}`);
+        } catch (error: any) {
+            // Keep the trip open (and GPS running) so the driver can retry —
+            // dropping it here would leave the ride stuck as "accepted".
+            Alert.alert("Error", error?.response?.data?.message || "Couldn't complete the trip. Try again.");
+            return;
+        }
+        stopTrip();
+    };
+
+    const endTrip = () => {
+        if (cash && !cash.confirmed) {
+            Alert.alert(
+                "Cash not confirmed",
+                `The rider chose cash ($${cash.amount.toFixed(2)}). Confirm you received it before ending?`,
+                [
+                    { text: "Go back", style: "cancel" },
+                    { text: "End anyway", style: "destructive", onPress: completeTrip },
+                ]
+            );
+            return;
+        }
+        completeTrip();
     };
 
     if (activeRideId) {
@@ -118,6 +149,30 @@ export default function DriverHomeScreen() {
             <View style={[styles.container, styles.centered]}>
                 <Title>Trip in progress</Title>
                 <Paragraph style={{ marginBottom: 20 }}>Broadcasting your location to the rider.</Paragraph>
+                <View style={{ flexDirection: "row", marginBottom: 12 }}>
+                    {passenger && (
+                        <Button
+                            mode="outlined"
+                            icon="message-text"
+                            style={{ marginRight: 8 }}
+                            onPress={() => navigation.navigate("Chat", {
+                                rideId: activeRideId,
+                                partnerId: passenger.id,
+                                partnerName: passenger.displayName || "Rider",
+                            })}
+                        >
+                            Chat with rider
+                        </Button>
+                    )}
+                    <Button
+                        mode="contained"
+                        icon="alert-octagon"
+                        buttonColor="#ff5252"
+                        onPress={() => navigation.navigate("SOS", { rideId: activeRideId })}
+                    >
+                        SOS
+                    </Button>
+                </View>
                 {cash && !cash.confirmed && (
                     <Button
                         mode="contained"

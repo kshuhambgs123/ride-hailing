@@ -202,10 +202,16 @@ data, not a redeploy:
    name/bundle identifier/icon in `app.json` (a config override per profile,
    or a separate `app.config.js` keyed off an env var if you're managing
    several operators from one repo).
-3. `GET /api/platform/tenant-config` (no auth required) returns that
+3. Give the operator an admin: have them sign up in their app as a normal
+   rider, then set that account's role to admin directly in the database
+   (`UPDATE "user" SET role = 'admin' WHERE "phoneNumber" = '...' AND
+   "tenantId" = '...'`). They'll see the Admin dashboard, including the
+   driver application queue, on their next login. Nobody can drive for
+   that operator until one of its admins approves them.
+4. `GET /api/platform/tenant-config` (no auth required) returns that
    tenant's name/logo/color at runtime — use it to theme the app dynamically
    instead of hardcoding "Volo" branding everywhere.
-4. That operator's own Stripe/Razorpay/PayPal credentials, if they want
+5. That operator's own Stripe/Razorpay/PayPal credentials, if they want
    payouts going to their own merchant account rather than yours — the
    current payment code uses one shared set of gateway credentials for
    every tenant (`backend/src/services/PaymentService.ts`), so per-tenant

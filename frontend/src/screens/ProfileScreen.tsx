@@ -4,19 +4,24 @@ import { Title, Avatar, List, Button, Card, Paragraph } from "react-native-paper
 import api from "../api/axios";
 
 export default function ProfileScreen({ navigation }: any) {
-    const [user, setUser] = useState<any>({ displayName: "User", phoneNumber: "...", walletBalance: 0, isKycVerified: false });
+    const [user, setUser] = useState<any>({ displayName: "", phoneNumber: "...", walletBalance: 0, isKycVerified: false });
 
     useEffect(() => {
+        // No fake fallback profile on failure: showing someone else's name
+        // or a "Verified" badge the user doesn't have is worse than a blank.
         api.get("/auth/me").then(res => setUser(res.data)).catch(() => {
-            setUser({ displayName: "Shubham Kumar", phoneNumber: "+91 9876543210", walletBalance: 550, isKycVerified: true });
+            setUser((prev: any) => ({ ...prev, phoneNumber: "Couldn't load your profile" }));
         });
     }, []);
+
+    // New accounts have no displayName (signup only collects a phone number).
+    const name = user.displayName || "Rider";
 
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                <Avatar.Text size={80} label={user.displayName.substring(0, 2).toUpperCase()} />
-                <Title style={styles.name}>{user.displayName}</Title>
+                <Avatar.Text size={80} label={name.substring(0, 2).toUpperCase()} />
+                <Title style={styles.name}>{name}</Title>
                 <Paragraph>{user.phoneNumber}</Paragraph>
             </View>
 

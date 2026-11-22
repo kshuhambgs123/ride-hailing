@@ -5,6 +5,9 @@ import { Ride } from "../entities/Ride";
 import { KycService } from "../services/KycService";
 import { ReferralService } from "../services/ReferralService";
 import { SupportTicket } from "../entities/SupportTicket";
+import { EmergencyContact } from "../entities/EmergencyContact";
+import { AuditAction } from "../entities/AuditLog";
+import { SentinelService } from "../services/SentinelService";
 import { TenantRequest } from "../middleware/tenant.middleware";
 
 // Public (no auth required — these are marketing numbers), but still scoped
@@ -83,6 +86,51 @@ export const createSupportTicket = async (req: Request, res: Response) => {
 
     await ticketRepository.save(ticket);
     res.json({ message: "Ticket created successfully", ticketId: ticket.id });
+};
+
+export const getEmergencyContacts = async (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const contacts = await AppDataSource.getRepository(EmergencyContact).find({
+        where: { user: { id: userId } },
+        order: { createdAt: "ASC" },
+    });
+    res.json(contacts);
+};
+
+export const addEmergencyContact = async (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const { name, phoneNumber } = req.body;
+    if (!name || !phoneNumber) {
+        return res.status(400).json({ message: "Name and phone number are required" });
+    }
+
+    const repo = AppDataSource.getRepository(EmergencyContact);
+    const contact = await repo.save(repo.create({ user: { id: userId } as any, name, phoneNumber }));
+    res.status(201).json(contact);
+};
+
+export const removeEmergencyContact = async (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const { contactId } = req.params as { contactId: string };
+    // Scoped to the caller's own contacts — a contact id alone isn't enough.
+    const result = await AppDataSource.getRepository(EmergencyContact).delete({ id: contactId, user: { id: userId } });
+    if (!result.affected) return res.status(404).json({ message: "Contact not found" });
+    res.json({ message: "Contact removed" });
+};
+
+// Records the emergency server-side (with location and ride) and returns the
+// caller's contacts. No SMS provider is configured, so the app itself sends
+// the alert through the phone's own SMS app — this endpoint must never be
+// the only thing standing between a rider and getting help, which is why
+// the app opens the SMS composer even if this call fails.
+export const triggerSos = async (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const { lat, lng, rideId } = req.body;
+
+    await SentinelService.log(AuditAction.EMERGENCY_TRIGGER, userId, { lat, lng, rideId }, req.ip);
+
+    const contacts = await AppDataSource.getRepository(EmergencyContact).find({ where: { user: { id: userId } } });
+    res.json({ recorded: true, contacts });
 };
 
 export const getMyTickets = async (req: Request, res: Response) => {

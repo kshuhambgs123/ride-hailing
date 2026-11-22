@@ -27,6 +27,12 @@ cd backend && docker compose up --build
 cd frontend && npm install && npm start
 ```
 
+## User flows
+
+See **[USER_FLOWS.md](USER_FLOWS.md)** for diagrams of how riders, drivers,
+admins, fleet owners and operators each use the app, with every broken or
+unbuilt step marked.
+
 ## Free-tier setup & launch
 
 See **[SETUP_AND_LAUNCH.md](SETUP_AND_LAUNCH.md)** for deploying at zero

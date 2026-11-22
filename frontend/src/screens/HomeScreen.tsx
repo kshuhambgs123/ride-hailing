@@ -8,7 +8,7 @@ import { CurrencyFormatter } from "../utils/CurrencyFormatter";
 import * as Speech from 'expo-speech';
 import api from "../api/axios";
 import { BASE_URL as SOCKET_URL, TENANT_SLUG } from "../api/config";
-import { getAuthToken } from "../api/session";
+import { getAuthToken, getCurrentUser } from "../api/session";
 
 type ActiveRide = {
     id: string;
@@ -24,6 +24,8 @@ export default function HomeScreen({ navigation }: any) {
     const [suggestions, setSuggestions] = useState<any[]>([]);
     const [recs, setRecs] = useState<any[]>([]);
     const [activeRide, setActiveRide] = useState<ActiveRide | null>(null);
+    // Display only — the admin API rejects non-admins regardless.
+    const isAdmin = getCurrentUser()?.role === "admin";
     const [isOnboarding, setIsOnboarding] = useState(false);
     const [onboardingStep, setOnboardingStep] = useState(0);
     const [seats, setSeats] = useState(1);
@@ -58,6 +60,12 @@ export default function HomeScreen({ navigation }: any) {
         const socket = io(SOCKET_URL, { auth: { token: getAuthToken(), tenantSlug: TENANT_SLUG } });
         socket.emit("join_ride_chat", activeRide.id);
         socket.on(`rideStatus:${activeRide.id}`, (data: { status: string; driverId?: string; driverName?: string }) => {
+            if (data.status === "completed") {
+                setActiveRide(null);
+                speak("Your trip is complete.");
+                Alert.alert("Trip completed", "Thanks for riding with us.");
+                return;
+            }
             setActiveRide((prev) => (prev ? { ...prev, ...data } as ActiveRide : prev));
             if (data.status === "accepted") {
                 speak(`${data.driverName || "Your driver"} accepted your ride.`);
@@ -340,7 +348,9 @@ export default function HomeScreen({ navigation }: any) {
                 <Card.Actions style={{ flexDirection: 'column' }}>
                     {!isInclusionMode ? (
                         <View style={{ width: '100%', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}>
-                            <Button icon="shield-check" mode="outlined" onPress={() => navigation.navigate("Admin")}>Admin</Button>
+                            {isAdmin && (
+                                <Button icon="shield-check" mode="outlined" onPress={() => navigation.navigate("Admin")}>Admin</Button>
+                            )}
                             <Button icon="gift" mode="outlined" onPress={() => navigation.navigate("Referral")}>Referral</Button>
                             <Button mode="outlined" icon="history" onPress={() => navigation.navigate("History")}>History</Button>
                             <Button mode="contained" icon="wallet" onPress={() => navigation.navigate("Wallet")}>Wallet</Button>
@@ -385,10 +395,31 @@ export default function HomeScreen({ navigation }: any) {
                             onPress={() => navigation.navigate("LiveTracking", {
                                 driverId: activeRide?.driverId,
                                 driverName: activeRide?.driverName,
+                                rideId: activeRide?.id,
                             })}
                         >
                             {activeRide?.driverId ? "Track Driver" : activeRide ? "Waiting for driver…" : "Tracking"}
                         </Button>
+                        {activeRide?.driverId && (
+                            <IconButton
+                                icon="message-text"
+                                mode="contained"
+                                onPress={() => navigation.navigate("Chat", {
+                                    rideId: activeRide.id,
+                                    partnerId: activeRide.driverId,
+                                    partnerName: activeRide.driverName,
+                                })}
+                            />
+                        )}
+                        {activeRide && (
+                            <IconButton
+                                icon="alert-octagon"
+                                mode="contained"
+                                containerColor="#ff5252"
+                                iconColor="#fff"
+                                onPress={() => navigation.navigate("SOS", { rideId: activeRide.id })}
+                            />
+                        )}
                         <IconButton
                             icon={isInclusionMode ? "eye-off" : "eye"}
                             mode="contained"
@@ -404,7 +435,10 @@ export default function HomeScreen({ navigation }: any) {
                     <Title style={{ color: '#fff', marginBottom: 20 }}>Elite Command Center</Title>
                     <List.Item title="My Wallet" left={p => <List.Icon {...p} icon="wallet" color="#6200ee" />} titleStyle={{ color: '#fff' }} onPress={() => { setIsDrawerOpen(false); navigation.navigate("Wallet"); }} />
                     <List.Item title="Ride History" left={p => <List.Icon {...p} icon="history" color="#6200ee" />} titleStyle={{ color: '#fff' }} onPress={() => { setIsDrawerOpen(false); navigation.navigate("History"); }} />
-                    <List.Item title="Safety Center" left={p => <List.Icon {...p} icon="shield-check" color="#6200ee" />} titleStyle={{ color: '#fff' }} onPress={() => { setIsDrawerOpen(false); navigation.navigate("Admin"); }} />
+                    <List.Item title="Safety Center (SOS)" left={p => <List.Icon {...p} icon="shield-check" color="#6200ee" />} titleStyle={{ color: '#fff' }} onPress={() => { setIsDrawerOpen(false); navigation.navigate("SOS", { rideId: activeRide?.id }); }} />
+                    {isAdmin && (
+                        <List.Item title="Admin Dashboard" left={p => <List.Icon {...p} icon="view-dashboard" color="#6200ee" />} titleStyle={{ color: '#fff' }} onPress={() => { setIsDrawerOpen(false); navigation.navigate("Admin"); }} />
+                    )}
                     <List.Item title="Become a Driver" left={p => <List.Icon {...p} icon="steering" color="#6200ee" />} titleStyle={{ color: '#fff' }} onPress={() => { setIsDrawerOpen(false); navigation.navigate("DriverVerification"); }} />
                     <List.Item title="Inclusion Mode" right={p => <Button mode="text" onPress={handleInclusionToggle}>{isInclusionMode ? "ON" : "OFF"}</Button>} left={p => <List.Icon {...p} icon="human-handsdown" color="#6200ee" />} titleStyle={{ color: '#fff' }} />
                     <Button mode="contained" onPress={() => setIsDrawerOpen(false)} style={{ marginTop: 20 }}>Close</Button>

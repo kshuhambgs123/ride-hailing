@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requestRide, acceptRide, getPendingRideRequests, publishRide, searchRides, getSmartSuggestions, parseVoiceBooking, payRide, confirmCashPayment, searchPlaces, getRecommendations, scheduleRide, cancelRide, getFareEstimate } from "../controllers/ride.controller";
+import { requestRide, acceptRide, getPendingRideRequests, publishRide, searchRides, getSmartSuggestions, parseVoiceBooking, payRide, confirmCashPayment, completeRide, getMyRidesAsPassenger, searchPlaces, getRecommendations, scheduleRide, cancelRide, getFareEstimate } from "../controllers/ride.controller";
 import { authMiddleware } from "../middleware/auth.middleware";
 
 const router = Router();
@@ -100,6 +100,24 @@ router.post("/pay", authMiddleware, payRide);
  *     tags: [Rides]
  */
 router.post("/confirm-cash/:rideId", authMiddleware, confirmCashPayment);
+
+/**
+ * @swagger
+ * /rides/complete/{rideId}:
+ *   post:
+ *     summary: Assigned driver marks the trip completed
+ *     tags: [Rides]
+ */
+router.post("/complete/:rideId", authMiddleware, completeRide);
+
+/**
+ * @swagger
+ * /rides/passenger:
+ *   get:
+ *     summary: The current user's rides as a passenger (trip history)
+ *     tags: [Rides]
+ */
+router.get("/passenger", authMiddleware, getMyRidesAsPassenger);
 
 /**
  * @swagger

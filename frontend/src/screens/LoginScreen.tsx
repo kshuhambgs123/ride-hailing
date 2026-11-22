@@ -4,7 +4,7 @@ import { TextInput, Button, Title, Text, Avatar, SegmentedButtons, HelperText } 
 import { auth, firebaseConfig } from "../utils/firebase";
 import { PhoneAuthProvider, signInWithCredential } from "firebase/auth";
 import api from "../api/axios";
-import { setAuthToken } from "../api/session";
+import { setAuthToken, setCurrentUser } from "../api/session";
 import RecaptchaVerifier, { RecaptchaVerifierHandle } from "../components/RecaptchaVerifier";
 
 const E164_PHONE = /^\+[1-9]\d{7,14}$/;
@@ -48,6 +48,11 @@ export default function LoginScreen({ navigation }: any) {
 
             const response = await api.post("/auth/verify-otp", { idToken, role });
             setAuthToken(response.data.token);
+            setCurrentUser({
+                id: response.data.user.id,
+                role: response.data.user.role,
+                displayName: response.data.user.displayName,
+            });
             // The account's actual stored role is authoritative (an existing
             // account keeps its original role regardless of what this login
             // attempt requested).
