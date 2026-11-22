@@ -2,7 +2,7 @@ import { Response } from "express";
 import { IsNull } from "typeorm";
 import { AuthRequest } from "../middleware/auth.middleware";
 import { AppDataSource } from "../data-source";
-import { Ride, RideStatus, PaymentStatus } from "../entities/Ride";
+import { Ride, RideStatus, RideType, PaymentStatus } from "../entities/Ride";
 import { TrackingService } from "../services/TrackingService";
 import { User } from "../entities/User";
 import { MatchmakingService } from "../services/MatchmakingService";
@@ -22,21 +22,35 @@ import { Tenant } from "../entities/Tenant";
 export const requestRide = async (req: AuthRequest, res: Response) => {
     const rideRepository = AppDataSource.getRepository(Ride);
     const userRepository = AppDataSource.getRepository(User);
-    const { pickupLat, pickupLng, destinationLat, destinationLng, fare } = req.body;
+    // Any `fare` in the body is deliberately ignored — the price is computed
+    // here from the coordinates, so a client can't book a ride for 1.
+    const { pickupLat, pickupLng, destinationLat, destinationLng, rideType, seats } = req.body;
     const passengerId = req.user.id;
+    const pickup = { lat: Number(pickupLat), lng: Number(pickupLng) };
+    const destination = { lat: Number(destinationLat), lng: Number(destinationLng) };
+
+    if (!PricingService.isValidCoordinate(pickup) || !PricingService.isValidCoordinate(destination)) {
+        return res.status(400).json({ message: "Valid pickup and destination coordinates are required" });
+    }
 
     try {
         const passenger = await userRepository.findOneBy({ id: passengerId });
         if (!passenger) return res.status(404).json({ message: "Passenger not found" });
 
+        const quote = PricingService.quote(pickup, destination, rideType, Number(seats) || 1);
+
         const ride = rideRepository.create({
             tenantId: req.user.tenantId,
             passenger,
-            pickupLat,
-            pickupLng,
-            destinationLat,
-            destinationLng,
-            fare,
+            pickupLat: pickup.lat,
+            pickupLng: pickup.lng,
+            destinationLat: destination.lat,
+            destinationLng: destination.lng,
+            fare: quote.fare,
+            baseFare: quote.breakdown.baseFare,
+            distance: String(quote.distanceKm),
+            totalSeats: Number(seats) || 1,
+            rideType: rideType === RideType.INTERCITY ? RideType.INTERCITY : RideType.LOCAL,
             status: RideStatus.PENDING,
         });
 
@@ -397,14 +411,19 @@ export const cancelRide = async (req: AuthRequest, res: Response) => {
     }
 };
 
+// Takes coordinates, not a distance — the server works out the distance so
+// the estimate always matches what requestRide will actually charge.
 export const getFareEstimate = async (req: AuthRequest, res: Response) => {
-    const { distanceKm, rideType, seats } = req.body;
-    try {
-        const fare = PricingService.calculatePrice(distanceKm, rideType, seats);
-        res.json({ fare });
-    } catch (error) {
-        res.status(500).json({ message: "Failed to estimate fare" });
+    const { pickupLat, pickupLng, destinationLat, destinationLng, rideType, seats } = req.body;
+    const pickup = { lat: Number(pickupLat), lng: Number(pickupLng) };
+    const destination = { lat: Number(destinationLat), lng: Number(destinationLng) };
+
+    if (!PricingService.isValidCoordinate(pickup) || !PricingService.isValidCoordinate(destination)) {
+        return res.status(400).json({ message: "Valid pickup and destination coordinates are required" });
     }
+
+    const quote = PricingService.quote(pickup, destination, rideType, Number(seats) || 1);
+    res.json(quote);
 };
 
 export const searchPlaces = async (req: AuthRequest, res: Response) => {
@@ -432,6 +451,8 @@ export const scheduleRide = async (req: AuthRequest, res: Response) => {
         const result = await SchedulingService.scheduleOneOffRide(userId, req.user.tenantId, req.body);
         res.status(201).json(result);
     } catch (error) {
+        const message = (error as Error).message;
+        if (message?.includes("coordinates")) return res.status(400).json({ message });
         res.status(500).json({ message: "Failed to schedule ride", error });
     }
 };

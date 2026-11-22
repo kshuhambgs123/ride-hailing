@@ -1,6 +1,7 @@
 import { AppDataSource } from "../data-source";
 import { Ride, RideStatus, RideType } from "../entities/Ride";
 import { WalletService } from "./WalletService";
+import { PricingService } from "./PricingService";
 import { SentinelService } from "./SentinelService";
 import { AuditAction } from "../entities/AuditLog";
 
@@ -66,9 +67,19 @@ export class SchedulingService {
         pickupAddress: string,
         destinationAddress: string,
         departureTime: Date,
-        fare: number,
         payDeposit?: boolean
     }) {
+        const pickup = { lat: Number(data.pickupLat), lng: Number(data.pickupLng) };
+        const destination = { lat: Number(data.destinationLat), lng: Number(data.destinationLng) };
+        // Validated before the deposit is taken, so a bad request can't
+        // charge the rider for a ride that then fails to be created.
+        if (!PricingService.isValidCoordinate(pickup) || !PricingService.isValidCoordinate(destination)) {
+            throw new Error("Valid pickup and destination coordinates are required");
+        }
+        // Priced server-side, same as an on-demand request — a fare sent by
+        // the app is never trusted.
+        const quote = PricingService.quote(pickup, destination, "local", 1);
+
         const SCHEDULING_FEE = data.payDeposit ? 1.00 : 0;
 
         // 1. Debit the minimal scheduling fee ONLY if priority is requested
@@ -80,14 +91,16 @@ export class SchedulingService {
         const ride = rideRepo.create({
             tenantId,
             passenger: { id: userId } as any,
-            pickupLat: data.pickupLat,
-            pickupLng: data.pickupLng,
-            destinationLat: data.destinationLat,
-            destinationLng: data.destinationLng,
+            pickupLat: pickup.lat,
+            pickupLng: pickup.lng,
+            destinationLat: destination.lat,
+            destinationLng: destination.lng,
             pickupAddress: data.pickupAddress,
             destinationAddress: data.destinationAddress,
             departureTime: data.departureTime,
-            fare: data.fare,
+            fare: quote.fare,
+            baseFare: quote.breakdown.baseFare,
+            distance: String(quote.distanceKm),
             schedulingFee: SCHEDULING_FEE,
             status: RideStatus.SCHEDULED,
             rideType: RideType.LOCAL

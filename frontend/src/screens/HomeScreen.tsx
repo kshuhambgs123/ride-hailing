@@ -34,6 +34,7 @@ export default function HomeScreen({ navigation }: any) {
     const [countdown, setCountdown] = useState(0);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [estimatedFare, setEstimatedFare] = useState<number | null>(null);
+    const [estimatedDistanceKm, setEstimatedDistanceKm] = useState<number | null>(null);
     const [destination, setDestination] = useState<any>(null);
     const [isScheduling, setIsScheduling] = useState(false);
     const [scheduledDate, setScheduledDate] = useState(new Date());
@@ -129,17 +130,30 @@ export default function HomeScreen({ navigation }: any) {
             return;
         }
 
+        // No silent default destination: this used to fall back to hardcoded
+        // Times Square coordinates, so a request without a pick (including
+        // the auto-book countdown) booked a ride somewhere the rider never chose.
+        if (!destination) {
+            Alert.alert("Choose a destination", "Pick where you're going first.");
+            return;
+        }
+
         speak("Searching for the best driver for you.");
         let newRideId: string;
+        let rideFare: number;
         try {
+            // No fare in the request: the server prices the trip itself from
+            // these coordinates and returns the fare it stored.
             const response = await api.post("/rides/request", {
                 pickupLat: location.coords.latitude,
                 pickupLng: location.coords.longitude,
-                destinationLat: destination?.lat || 40.758896,
-                destinationLng: destination?.lng || -73.985130,
-                fare: estimatedFare || 25 * seats,
+                destinationLat: destination.lat,
+                destinationLng: destination.lng,
+                rideType: "local",
+                seats,
             });
             newRideId = response.data.id;
+            rideFare = Number(response.data.fare);
             setActiveRide({ id: newRideId, status: "pending" });
         } catch (error) {
             console.error("Request ride failed:", error);
@@ -149,7 +163,7 @@ export default function HomeScreen({ navigation }: any) {
 
         // Without rideId here, every call to /rides/pay was silently
         // hitting the backend with an empty ride id and could never settle.
-        navigation.navigate("Payment", { amount: 25 * seats, rideId: newRideId });
+        navigation.navigate("Payment", { amount: rideFare, rideId: newRideId });
     };
 
     const handleInclusionToggle = () => {
@@ -197,18 +211,21 @@ export default function HomeScreen({ navigation }: any) {
     };
 
     const handleScheduleRide = async (payDeposit: boolean) => {
+        if (!location || !destination) {
+            Alert.alert("Choose a destination", "Pick where you're going before scheduling.");
+            return;
+        }
         speak(`Scheduling your ride for ${scheduledDate.toLocaleString()}.`);
 
         try {
             const response = await api.post("/rides/schedule", {
-                pickupLat: location?.coords.latitude,
-                pickupLng: location?.coords.longitude,
-                destinationLat: destination?.lat || 40.758896,
-                destinationLng: destination?.lng || -73.985130,
+                pickupLat: location.coords.latitude,
+                pickupLng: location.coords.longitude,
+                destinationLat: destination.lat,
+                destinationLng: destination.lng,
                 pickupAddress: "Current Location",
-                destinationAddress: destination?.label || "Times Square, NY",
+                destinationAddress: destination.label || destination.title || destination.address,
                 departureTime: scheduledDate,
-                fare: estimatedFare || 35.00,
                 payDeposit
             });
             Alert.alert("Volo Chronos", response.data.message);
@@ -218,24 +235,38 @@ export default function HomeScreen({ navigation }: any) {
         }
     };
 
-    const selectPlace = async (place: any) => {
-        setSearchQuery(place.label || place.title);
+    const selectPlace = (place: any) => {
+        setSearchQuery(place.label || place.title || place.address);
         setDestination(place);
-        speak(`Going to ${place.label || place.title}. Calculating your elite fare.`);
-
-        // Dynamic Fare Estimation (Elite UX)
-        try {
-            // Mocking a distance of 10km for now as we don't have a live routing engine here
-            const response = await api.post("/rides/fare-estimate", {
-                distanceKm: 12.5,
-                rideType: "local",
-                seats
-            });
-            setEstimatedFare(response.data.fare);
-        } catch (error) {
-            console.error("Fare estimate error:", error);
-        }
+        speak(`Going to ${place.label || place.title || place.address}. Calculating your fare.`);
     };
+
+    // Re-quotes whenever pickup, destination or seat count changes, so the
+    // price shown always matches what the server will charge for the request.
+    useEffect(() => {
+        if (!location || !destination) {
+            setEstimatedFare(null);
+            setEstimatedDistanceKm(null);
+            return;
+        }
+        let cancelled = false;
+        api.post("/rides/fare-estimate", {
+            pickupLat: location.coords.latitude,
+            pickupLng: location.coords.longitude,
+            destinationLat: destination.lat,
+            destinationLng: destination.lng,
+            rideType: "local",
+            seats,
+        }).then((response) => {
+            if (cancelled) return;
+            setEstimatedFare(response.data.fare);
+            setEstimatedDistanceKm(response.data.distanceKm);
+        }).catch((error) => {
+            if (!cancelled) setEstimatedFare(null);
+            console.error("Fare estimate error:", error);
+        });
+        return () => { cancelled = true; };
+    }, [location, destination, seats]);
 
     return (
         <View style={styles.container}>
@@ -365,7 +396,11 @@ export default function HomeScreen({ navigation }: any) {
                             contentStyle={{ height: isInclusionMode ? 80 : 45 }}
                             labelStyle={isInclusionMode && { fontSize: 24, paddingVertical: 10 }}
                         >
-                            {isInclusionMode ? "GO NOW" : `Confirm Ride (${CurrencyFormatter.format(estimatedFare || 25 * seats)})`}
+                            {isInclusionMode
+                                ? "GO NOW"
+                                : estimatedFare != null
+                                    ? `Confirm Ride (${CurrencyFormatter.format(estimatedFare)}${estimatedDistanceKm != null ? ` · ${estimatedDistanceKm} km` : ""})`
+                                    : destination ? "Getting fare…" : "Choose a destination"}
                         </Button>
                         {!isInclusionMode && (
                             <Button
