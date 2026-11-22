@@ -1,0 +1,46 @@
+flowchart TD
+    START(["Open app"]) --> LOGIN["Login screen<br/>pick 'Rider', enter phone number"]
+    LOGIN --> OTP["Invisible reCAPTCHA check,<br/>SMS code from Firebase"]
+    OTP --> VERIFY["Enter code<br/>POST /auth/verify-otp"]
+    VERIFY --> NEW{"First login?"}
+    NEW -->|yes| BONUS["$10 welcome credit<br/>+ 4-step onboarding"]
+    NEW -->|no| HOME
+    BONUS --> HOME["Home: map with your location"]
+
+    HOME --> DEST["Pick destination<br/>(search, suggestions, voice)"]
+    DEST --> FARE["Fare estimate<br/>POST /rides/fare-estimate"]
+    FARE --> CHOICE{"Ride now or later?"}
+    CHOICE -->|later| SCHED["Schedule ride<br/>POST /rides/schedule<br/>(optional $1 priority deposit)"]
+    CHOICE -->|now| REQ["Confirm Ride<br/>POST /rides/request"]
+
+    REQ --> PAY["Payment screen:<br/>choose a method"]
+    PAY --> M{"Method"}
+    M -->|Wallet| W["Paid instantly<br/>from wallet balance"]
+    M -->|Cash| C["Told to pay the driver;<br/>stays unpaid until<br/>driver confirms"]
+    M -->|"Razorpay / PayPal"| H["Gateway's hosted page<br/>opens in browser;<br/>webhook confirms payment"]
+    M -->|Stripe| S["Payment intent created,<br/>but no card form in the app"]
+
+    W --> WAIT
+    C --> WAIT
+    H --> WAIT
+    S --> WAIT
+    WAIT["Waiting for a driver<br/>(listening on the ride's socket room)"]
+    WAIT -->|"driver accepts"| ACC["Driver assigned:<br/>Track, Chat and SOS buttons appear"]
+    ACC --> TRACK["Live Tracking:<br/>driver's car moves on the map"]
+    ACC --> CHAT["Chat with driver"]
+    TRACK -->|"driver ends trip"| DONE(["'Trip completed'"])
+    DONE -.-> RATE["Rate the driver"]
+
+    HOME --> SIDE["Side menu and tabs"]
+    SIDE --> WALLET["Wallet: balance, top up,<br/>transaction history"]
+    SIDE --> REF["Referral code"]
+    SIDE --> SUP["Support ticket"]
+    SIDE --> HIST["Trip history<br/>GET /rides/passenger"]
+    SIDE --> PROF["Profile<br/>GET /auth/me"]
+    SIDE --> SOS["Safety Center (SOS)<br/>see below"]
+    SIDE --> BECOME["'Become a Driver'<br/>(see Driver onboarding)"]
+
+    classDef broken fill:#fde2e2,stroke:#c62828,color:#7f0000
+    classDef missing fill:#f2f2f2,stroke:#999,stroke-dasharray:5 5,color:#666
+    class S broken
+    class RATE missing

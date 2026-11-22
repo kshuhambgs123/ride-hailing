@@ -1,0 +1,11 @@
+flowchart TD
+    A(["New operator signs up"]) --> B["Insert a Tenant row:<br/>slug, name, logo, colour,<br/>commission rate<br/>(directly in the database, no admin UI yet)"]
+    B --> C["New EAS build profile with<br/>EXPO_PUBLIC_TENANT_SLUG,<br/>own app name, icon, bundle ID"]
+    C --> D["Build and submit to<br/>App Store / Play Store"]
+    D --> E["App fetches branding at runtime<br/>GET /platform/tenant-config"]
+    E --> F(["Operator's riders and drivers<br/>use their own app; their data never<br/>mixes with other operators'"])
+    B -.-> G["Self-serve signup and<br/>operator dashboard"]
+    B -.-> H["Payouts to the operator's<br/>own gateway accounts"]
+
+    classDef missing fill:#f2f2f2,stroke:#999,stroke-dasharray:5 5,color:#666
+    class G,H missing

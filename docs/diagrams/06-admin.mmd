@@ -1,0 +1,16 @@
+flowchart TD
+    SETUP(["Account's role set to 'admin'<br/>in the database"]) --> A["Logs in as usual"]
+    A --> B["'Admin' button and side-menu<br/>entry appear (admins only)"]
+    B --> C["Admin dashboard:<br/>users, rides, earnings<br/>for this operator only"]
+    C --> APPS["Driver applications queue<br/>GET /admin/driver-applications"]
+    APPS --> DEC{"Decision"}
+    DEC -->|approve| AP["POST .../approve<br/>→ account becomes a driver"]
+    DEC -->|"reject + reason"| RJ["POST .../reject"]
+    APPS -.-> VIEW["View the uploaded ID photos"]
+    C -.-> E["Manage coupons and campaigns"]
+    C -.-> F["Answer support tickets"]
+    C -.-> G["Refunds and disputes"]
+    C -.-> H["Suspend riders or drivers"]
+
+    classDef missing fill:#f2f2f2,stroke:#999,stroke-dasharray:5 5,color:#666
+    class VIEW,E,F,G,H missing

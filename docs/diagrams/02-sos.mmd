@@ -1,0 +1,12 @@
+flowchart TD
+    A(["Open SOS"]) --> B{"Emergency contacts<br/>saved?"}
+    B -->|no| ADD["Add contacts on the same screen<br/>POST /platform/emergency-contacts"]
+    ADD --> HOLD
+    B -->|yes| HOLD["Hold the SOS button for 2 s"]
+    HOLD --> GPS["Get current GPS position"]
+    GPS --> LOG["Record the emergency on the server<br/>POST /platform/sos<br/>(location + ride; never blocks the alert)"]
+    GPS --> SMS["Phone's SMS app opens, addressed<br/>to all contacts, with a map link"]
+    SMS --> R{"User sent it?"}
+    R -->|yes| OK(["'Alert sent to N contacts'"])
+    R -->|no| RETRY(["'Alert was not sent' —<br/>hold again or call"])
+    A --> CALL["'Call emergency services (112)'<br/>always visible"]

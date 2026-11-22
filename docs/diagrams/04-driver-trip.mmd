@@ -1,0 +1,13 @@
+flowchart TD
+    A(["Driver Home"]) --> B["List of waiting ride requests<br/>GET /rides/pending<br/>refreshes every 10 s"]
+    B --> C["Tap 'Accept'<br/>POST /rides/accept/:id"]
+    C --> D{"Still available?"}
+    D -->|"no: another driver<br/>got there first"| B
+    D -->|yes| E["Allow location access"]
+    E --> F["Trip in progress:<br/>GPS sent every ~4 s / 10 m<br/>to the rider's map<br/>(Chat with rider and SOS buttons)"]
+    F --> G{"Did the rider<br/>choose cash?"}
+    G -->|yes| H["'Confirm Cash Received ($X)'<br/>POST /rides/confirm-cash/:id<br/>→ ride marked paid"]
+    G -->|no| I
+    H --> I["'End Trip'<br/>(warns if cash not yet confirmed)"]
+    I --> K["POST /rides/complete/:id<br/>→ ride 'completed', platform fee<br/>from the operator's commission rate"]
+    K --> J(["Back to the request list"])

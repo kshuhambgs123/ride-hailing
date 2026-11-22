@@ -1,0 +1,34 @@
+sequenceDiagram
+    autonumber
+    participant R as Rider app
+    participant B as Backend
+    participant D as Driver app
+    participant G as Razorpay
+
+    R->>B: POST /rides/request
+    B-->>R: ride created (pending)
+    R->>B: join ride's socket room
+    R->>B: POST /rides/pay (razorpay)
+    B->>G: create payment link
+    G-->>B: hosted checkout URL
+    B-->>R: checkoutUrl
+    R->>G: rider pays in browser
+    G->>B: webhook: payment_link.paid (signed)
+    Note over B: ride marked paid — only the<br/>webhook can do this, never the app
+
+    loop every 10 seconds
+        D->>B: GET /rides/pending
+    end
+    D->>B: POST /rides/accept/:id
+    Note over B: atomic update: only one<br/>driver can win the ride
+    B-->>R: socket: accepted + driver name
+    D->>B: join ride's socket room
+
+    loop during the trip
+        D->>B: socket: updateLocation (lat, lng)
+        B-->>R: socket: driver's new position
+    end
+
+    D->>B: POST /rides/complete/:id
+    Note over B: status completed,<br/>platform fee recorded
+    B-->>R: socket: completed
