@@ -4,7 +4,7 @@ import { Button, Card, Title, Paragraph, ActivityIndicator } from "react-native-
 import * as Location from "expo-location";
 import { io, Socket } from "socket.io-client";
 import api from "../api/axios";
-import { BASE_URL as SOCKET_URL } from "../api/config";
+import { BASE_URL as SOCKET_URL, TENANT_SLUG } from "../api/config";
 import { getAuthToken } from "../api/session";
 
 type RideRequest = {
@@ -75,7 +75,7 @@ export default function DriverHomeScreen() {
         setActiveRideId(rideId);
         setCash(null);
 
-        const socket = io(SOCKET_URL, { auth: { token: getAuthToken() } });
+        const socket = io(SOCKET_URL, { auth: { token: getAuthToken(), tenantSlug: TENANT_SLUG } });
         socketRef.current = socket;
         socket.emit("join_ride_chat", rideId);
         socket.on(`rideStatus:${rideId}`, (data: { status: string; amount?: number }) => {

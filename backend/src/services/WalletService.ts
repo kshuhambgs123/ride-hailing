@@ -11,7 +11,7 @@ export class WalletService {
         return Number(user?.walletBalance || 0);
     }
 
-    static async creditWallet(userId: string, amount: number, referenceId?: string): Promise<number> {
+    static async creditWallet(userId: string, amount: number, tenantId: string, referenceId?: string): Promise<number> {
         return await AppDataSource.transaction(async (manager) => {
             const user = await manager.findOneBy(User, { id: userId });
             if (!user) throw new Error("User not found");
@@ -20,6 +20,7 @@ export class WalletService {
             await manager.save(user);
 
             const transaction = manager.create(Transaction, {
+                tenantId,
                 user: { id: userId } as any,
                 grossAmount: amount,
                 netAmount: amount,
@@ -36,7 +37,7 @@ export class WalletService {
         });
     }
 
-    static async debitWallet(userId: string, amount: number, referenceId?: string): Promise<number> {
+    static async debitWallet(userId: string, amount: number, tenantId: string, referenceId?: string): Promise<number> {
         return await AppDataSource.transaction(async (manager) => {
             const user = await manager.findOneBy(User, { id: userId });
             if (!user) throw new Error("User not found");
@@ -48,6 +49,7 @@ export class WalletService {
 
             // Record Transaction
             const transaction = manager.create(Transaction, {
+                tenantId,
                 user,
                 grossAmount: -amount,
                 netAmount: -amount,

@@ -7,7 +7,7 @@ import { io } from "socket.io-client";
 import { CurrencyFormatter } from "../utils/CurrencyFormatter";
 import * as Speech from 'expo-speech';
 import api from "../api/axios";
-import { BASE_URL as SOCKET_URL } from "../api/config";
+import { BASE_URL as SOCKET_URL, TENANT_SLUG } from "../api/config";
 import { getAuthToken } from "../api/session";
 
 type ActiveRide = {
@@ -55,7 +55,7 @@ export default function HomeScreen({ navigation }: any) {
     useEffect(() => {
         if (!activeRide?.id) return;
 
-        const socket = io(SOCKET_URL, { auth: { token: getAuthToken() } });
+        const socket = io(SOCKET_URL, { auth: { token: getAuthToken(), tenantSlug: TENANT_SLUG } });
         socket.emit("join_ride_chat", activeRide.id);
         socket.on(`rideStatus:${activeRide.id}`, (data: { status: string; driverId?: string; driverName?: string }) => {
             setActiveRide((prev) => (prev ? { ...prev, ...data } as ActiveRide : prev));

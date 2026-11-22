@@ -5,22 +5,41 @@ import { Ride } from "../entities/Ride";
 import { KycService } from "../services/KycService";
 import { ReferralService } from "../services/ReferralService";
 import { SupportTicket } from "../entities/SupportTicket";
+import { TenantRequest } from "../middleware/tenant.middleware";
 
-export const getPlatformStats = async (req: Request, res: Response) => {
+// Public (no auth required — these are marketing numbers), but still scoped
+// to the requesting tenant (resolveTenant runs ahead of this on every
+// /api/platform route) — otherwise one operator's rider count and revenue
+// would be visible to every other operator sharing this backend.
+export const getPlatformStats = async (req: TenantRequest, res: Response) => {
+    const tenantId = req.tenant!.id;
     const userRepository = AppDataSource.getRepository(User);
     const rideRepository = AppDataSource.getRepository(Ride);
 
-    const totalUsers = await userRepository.count();
-    const totalRides = await rideRepository.count();
+    const totalUsers = await userRepository.count({ where: { tenantId } });
+    const totalRides = await rideRepository.count({ where: { tenantId } });
     const totalRevenue = await rideRepository
         .createQueryBuilder("ride")
         .select("SUM(ride.platformFee)", "sum")
+        .where("ride.tenantId = :tenantId", { tenantId })
         .getRawOne();
 
     res.json({
         totalUsers,
         totalRides,
         platformEarnings: totalRevenue.sum || 0
+    });
+};
+
+// Public, tenant-scoped branding — lets a single app build render a
+// different name/color/logo per operator at runtime instead of needing a
+// separate store listing and rebuild for every white-labeled tenant.
+export const getTenantConfig = async (req: TenantRequest, res: Response) => {
+    const tenant = req.tenant!;
+    res.json({
+        name: tenant.name,
+        logoUrl: tenant.logoUrl,
+        primaryColor: tenant.primaryColor,
     });
 };
 

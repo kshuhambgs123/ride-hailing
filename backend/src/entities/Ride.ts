@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, Index } from "typeorm";
 import { User } from "./User";
+import { Tenant } from "./Tenant";
 
 export enum RideStatus {
     PENDING = "pending",
@@ -26,6 +27,13 @@ export enum PaymentStatus {
 export class Ride {
     @PrimaryGeneratedColumn("uuid")
     id!: string;
+
+    @ManyToOne(() => Tenant)
+    @Index()
+    tenant!: Tenant;
+
+    @Column()
+    tenantId!: string;
 
     @ManyToOne(() => User)
     passenger!: User;

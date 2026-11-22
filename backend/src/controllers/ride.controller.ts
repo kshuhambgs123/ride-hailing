@@ -29,6 +29,7 @@ export const requestRide = async (req: AuthRequest, res: Response) => {
         if (!passenger) return res.status(404).json({ message: "Passenger not found" });
 
         const ride = rideRepository.create({
+            tenantId: req.user.tenantId,
             passenger,
             pickupLat,
             pickupLng,
@@ -52,18 +53,20 @@ export const acceptRide = async (req: AuthRequest, res: Response) => {
     const driverId = req.user.id;
 
     try {
-        const driver = await userRepository.findOneBy({ id: driverId });
+        const driver = await userRepository.findOneBy({ id: driverId, tenantId: req.user.tenantId });
         if (!driver) return res.status(404).json({ message: "Driver not found" });
 
         // Conditional UPDATE (not read-then-write) so two drivers racing to
         // accept the same request can't both succeed — only the first
-        // UPDATE matching "still pending, no driver yet" affects a row.
+        // UPDATE matching "still pending, no driver yet, same tenant" affects
+        // a row.
         const result = await rideRepository.createQueryBuilder()
             .update(Ride)
             .set({ driver, status: RideStatus.ACCEPTED })
             .where("id = :rideId", { rideId })
             .andWhere("status = :pending", { pending: RideStatus.PENDING })
             .andWhere("driverId IS NULL")
+            .andWhere("tenantId = :tenantId", { tenantId: req.user.tenantId })
             .execute();
 
         if (!result.affected) {
@@ -91,7 +94,7 @@ export const getPendingRideRequests = async (req: AuthRequest, res: Response) =>
         // set, so filtering on driver IS NULL here naturally returns only
         // on-demand requests waiting to be matched.
         const requests = await rideRepository.find({
-            where: { status: RideStatus.PENDING, driver: IsNull() },
+            where: { status: RideStatus.PENDING, driver: IsNull(), tenantId: req.user.tenantId },
             relations: ["passenger"],
             order: { createdAt: "ASC" },
             take: 50,
@@ -109,6 +112,7 @@ export const publishRide = async (req: AuthRequest, res: Response) => {
 
     try {
         const ride = rideRepository.create({
+            tenantId: req.user.tenantId,
             driver: { id: driverId },
             pickupLat, pickupLng, destinationLat, destinationLng,
             pickupAddress, destinationAddress, departureTime,
@@ -136,6 +140,7 @@ export const searchRides = async (req: AuthRequest, res: Response) => {
         const matches = await rideRepository.createQueryBuilder("ride")
             .leftJoinAndSelect("ride.driver", "driver")
             .where("ride.status = :status", { status: RideStatus.PENDING })
+            .andWhere("ride.tenantId = :tenantId", { tenantId: req.user.tenantId })
             .andWhere("ride.pickupLat BETWEEN :minLat AND :maxLat", {
                 minLat: pickup.lat - offset,
                 maxLat: pickup.lat + offset
@@ -197,7 +202,7 @@ export const payRide = async (req: AuthRequest, res: Response) => {
     const userRepo = AppDataSource.getRepository(User);
 
     try {
-        const ride = await rideRepo.findOneBy({ id: rideId });
+        const ride = await rideRepo.findOneBy({ id: rideId, tenantId: req.user.tenantId });
         if (!ride) return res.status(404).json({ message: "Ride not found" });
 
         // ELITE SETTLEMENT: Subtract already-paid scheduling fee from final fare
@@ -205,7 +210,7 @@ export const payRide = async (req: AuthRequest, res: Response) => {
         const remainingToPay = Math.max(0, Number(ride.fare) - depositPaid);
 
         if (provider === "wallet") {
-            const newBalance = await WalletService.debitWallet(userId, remainingToPay, rideId);
+            const newBalance = await WalletService.debitWallet(userId, remainingToPay, req.user.tenantId, rideId);
             ride.paymentStatus = "paid" as any;
             await rideRepo.save(ride);
 
@@ -243,6 +248,7 @@ export const payRide = async (req: AuthRequest, res: Response) => {
             provider,
             rideId,
             userId,
+            req.user.tenantId,
             { name: payer?.displayName, contact: payer?.phoneNumber }
         );
         res.json(result);
@@ -261,7 +267,7 @@ export const confirmCashPayment = async (req: AuthRequest, res: Response) => {
     const rideRepo = AppDataSource.getRepository(Ride);
 
     try {
-        const ride = await rideRepo.findOne({ where: { id: rideId }, relations: ["driver", "passenger"] });
+        const ride = await rideRepo.findOne({ where: { id: rideId, tenantId: req.user.tenantId }, relations: ["driver", "passenger"] });
         if (!ride) return res.status(404).json({ message: "Ride not found" });
         if (ride.driver?.id !== driverId) {
             return res.status(403).json({ message: "Only this ride's assigned driver can confirm payment" });
@@ -281,6 +287,7 @@ export const confirmCashPayment = async (req: AuthRequest, res: Response) => {
 
         const txRepo = AppDataSource.getRepository(Transaction);
         await txRepo.save(txRepo.create({
+            tenantId: req.user.tenantId,
             user: { id: ride.passenger?.id },
             ride: { id: rideId },
             type: TransactionType.CASH,
@@ -306,7 +313,7 @@ export const cancelRide = async (req: AuthRequest, res: Response) => {
 
     try {
         const ride = await rideRepo.findOne({
-            where: { id: rideId, passenger: { id: userId } }
+            where: { id: rideId, passenger: { id: userId }, tenantId: req.user.tenantId }
         });
 
         if (!ride) return res.status(404).json({ message: "Ride not found" });
@@ -316,8 +323,8 @@ export const cancelRide = async (req: AuthRequest, res: Response) => {
 
         // ELITE COMPENSATION: If driver already accepted, compensate them
         if (ride.status === RideStatus.ACCEPTED && ride.driver) {
-            await WalletService.debitWallet(userId, CANCELLATION_FEE, `CANCEL_FEE_RIDE_${rideId}`);
-            await WalletService.creditWallet(ride.driver.id, CANCELLATION_FEE, `DRIVER_COMP_RIDE_${rideId}`);
+            await WalletService.debitWallet(userId, CANCELLATION_FEE, req.user.tenantId, `CANCEL_FEE_RIDE_${rideId}`);
+            await WalletService.creditWallet(ride.driver.id, CANCELLATION_FEE, req.user.tenantId, `DRIVER_COMP_RIDE_${rideId}`);
             ride.cancellationFee = CANCELLATION_FEE;
             responseMessage = `Ride cancelled. A $${CANCELLATION_FEE} fee was charged to compensate the driver.`;
 
@@ -327,7 +334,7 @@ export const cancelRide = async (req: AuthRequest, res: Response) => {
 
         // CHRONOS REFUND: If scheduled ride is cancelled before matching, refund deposit
         if (ride.status === RideStatus.SCHEDULED && Number(ride.schedulingFee) > 0) {
-            await WalletService.creditWallet(userId, Number(ride.schedulingFee), `REFUND_CHRONOS_${rideId}`);
+            await WalletService.creditWallet(userId, Number(ride.schedulingFee), req.user.tenantId, `REFUND_CHRONOS_${rideId}`);
             await SentinelService.log(AuditAction.WALLET_CREDIT, userId, { rideId, amount: ride.schedulingFee, type: "CHRONOS_REFUND" });
             responseMessage = "Scheduled ride cancelled and deposit refunded.";
         }
@@ -375,7 +382,7 @@ export const getRecommendations = async (req: AuthRequest, res: Response) => {
 export const scheduleRide = async (req: AuthRequest, res: Response) => {
     const userId = req.user.id;
     try {
-        const result = await SchedulingService.scheduleOneOffRide(userId, req.body);
+        const result = await SchedulingService.scheduleOneOffRide(userId, req.user.tenantId, req.body);
         res.status(201).json(result);
     } catch (error) {
         res.status(500).json({ message: "Failed to schedule ride", error });

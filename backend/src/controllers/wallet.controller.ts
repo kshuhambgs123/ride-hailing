@@ -16,7 +16,7 @@ export const getBalance = async (req: AuthRequest, res: Response) => {
 export const addMoney = async (req: AuthRequest, res: Response) => {
     const { amount, referenceId } = req.body;
     try {
-        const newBalance = await WalletService.creditWallet(req.user.id, Number(amount), referenceId);
+        const newBalance = await WalletService.creditWallet(req.user.id, Number(amount), req.user.tenantId, referenceId);
         res.json({ message: "Money added successfuly", newBalance });
     } catch (error) {
         res.status(500).json({ message: "Error adding money", error });

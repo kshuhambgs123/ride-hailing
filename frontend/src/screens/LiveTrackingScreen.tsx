@@ -3,7 +3,7 @@ import { View, StyleSheet, Dimensions, Platform } from "react-native";
 import MapView, { Marker } from "react-native-maps";
 import { Title, IconButton, Avatar, Paragraph } from "react-native-paper";
 import { io } from "socket.io-client";
-import { BASE_URL as SOCKET_URL } from "../api/config";
+import { BASE_URL as SOCKET_URL, TENANT_SLUG } from "../api/config";
 import { getAuthToken } from "../api/session";
 
 // Tracks one specific driver for one specific ride — not a fleet-wide view.
@@ -17,7 +17,7 @@ export default function LiveTrackingScreen({ navigation, route }: any) {
     useEffect(() => {
         if (!driverId) return;
 
-        const socket = io(SOCKET_URL, { auth: { token: getAuthToken() } });
+        const socket = io(SOCKET_URL, { auth: { token: getAuthToken(), tenantSlug: TENANT_SLUG } });
 
         socket.on(`tracking:${driverId}`, (data: { lat: number; lng: number }) => {
             setPosition({ latitude: data.lat, longitude: data.lng });

@@ -8,14 +8,16 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "http://localhost:5000"
+        "EXPO_PUBLIC_API_BASE_URL": "http://localhost:5000",
+        "EXPO_PUBLIC_TENANT_SLUG": "volo"
       }
     },
     "preview": {
       "distribution": "internal",
       "channel": "preview",
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://staging-api.volo.app"
+        "EXPO_PUBLIC_API_BASE_URL": "https://staging-api.volo.app",
+        "EXPO_PUBLIC_TENANT_SLUG": "volo"
       },
       "android": {
         "buildType": "apk"
@@ -25,7 +27,8 @@
       "channel": "production",
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://api.volo.app"
+        "EXPO_PUBLIC_API_BASE_URL": "https://api.volo.app",
+        "EXPO_PUBLIC_TENANT_SLUG": "volo"
       },
       "android": {
         "buildType": "app-bundle"

@@ -19,6 +19,13 @@ const mockUserRepository = {
 
 const app = express();
 app.use(express.json());
+// Stands in for resolveTenant (see src/middleware/tenant.middleware.ts),
+// which verifyOtp now requires — this test exercises the controller in
+// isolation, not the full route chain wired in src/index.ts.
+app.use((req: any, _res, next) => {
+    req.tenant = { id: "test-tenant-id", slug: "volo" };
+    next();
+});
 app.post("/api/auth/verify-otp", authController.verifyOtp);
 
 describe("Auth Integration", () => {

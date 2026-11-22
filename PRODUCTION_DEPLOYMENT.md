@@ -186,7 +186,37 @@ doc) — run `terraform output` after `apply` to see them all at once.
       with error tracking; add Sentry or similar to the backend and app
       before, not after, you have real users depending on it
 
-## 7. Rollback
+## 7. Onboarding a new white-label operator
+
+This backend is multi-tenant (see `backend/src/entities/Tenant.ts`) — one
+deployment can serve many branded operators sharing the same infrastructure,
+each with its own isolated users, rides, and transactions. Onboarding one is
+data, not a redeploy:
+
+1. Insert a `Tenant` row (slug, display name, branding, commission rate) —
+   there's no admin UI for this yet, so do it directly via a one-off script
+   or a `psql`/TypeORM query against the production database. The slug is
+   what the operator's app build sends as `X-Tenant-Slug`.
+2. New EAS build profile in `frontend/eas.json`, cloned from `production`,
+   with that tenant's `EXPO_PUBLIC_TENANT_SLUG` and the operator's own app
+   name/bundle identifier/icon in `app.json` (a config override per profile,
+   or a separate `app.config.js` keyed off an env var if you're managing
+   several operators from one repo).
+3. `GET /api/platform/tenant-config` (no auth required) returns that
+   tenant's name/logo/color at runtime — use it to theme the app dynamically
+   instead of hardcoding "Volo" branding everywhere.
+4. That operator's own Stripe/Razorpay/PayPal credentials, if they want
+   payouts going to their own merchant account rather than yours — the
+   current payment code uses one shared set of gateway credentials for
+   every tenant (`backend/src/services/PaymentService.ts`), so per-tenant
+   payment credentials are a real next step once an operator needs it, not
+   something this deployment handles yet.
+
+A token minted for one tenant is rejected by every other tenant's
+connections (`authMiddleware`, `socketAuth`) — a bug in one operator's app
+can't leak into another's.
+
+## 8. Rollback
 
 - **Bad backend deploy**: `aws ecs update-service --cluster <cluster> --service <service> --task-definition <previous-task-def-arn> --force-new-deployment`
   (find the previous ARN with `aws ecs list-task-definitions`), or re-run

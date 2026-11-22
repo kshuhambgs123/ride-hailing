@@ -1,11 +1,12 @@
 import axios from "axios";
-import { API_URL } from "./config";
+import { API_URL, TENANT_SLUG } from "./config";
 import { getAuthToken } from "./session";
 
 const api = axios.create({
     baseURL: API_URL,
     headers: {
         "Content-Type": "application/json",
+        "X-Tenant-Slug": TENANT_SLUG,
     },
 });
 

@@ -13,6 +13,7 @@ import { Badge } from "./entities/Badge";
 import { DriverVerification } from "./entities/DriverVerification";
 import { Transaction } from "./entities/Transaction";
 import { AuditLog } from "./entities/AuditLog";
+import { Tenant } from "./entities/Tenant";
 import * as dotenv from "dotenv";
 
 dotenv.config();
@@ -37,7 +38,7 @@ export const AppDataSource = new DataSource({
     // never through synchronize.
     synchronize: process.env.NODE_ENV !== "production",
     logging: false,
-    entities: [User, Ride, Review, Coupon, SupportTicket, Message, RecurringRide, EmergencyContact, Badge, DriverVerification, Transaction, AuditLog],
+    entities: [Tenant, User, Ride, Review, Coupon, SupportTicket, Message, RecurringRide, EmergencyContact, Badge, DriverVerification, Transaction, AuditLog],
     // __dirname-relative (not "src/migrations/*.ts"): a path relative to the
     // repo root only resolves under ts-node run from the repo root. The
     // production image ships only dist/, with no src/ folder at all, so a

@@ -9,7 +9,7 @@ export class EconService {
     static PLATFORM_FEE_PERCENTAGE = 0.10; // 10% platform fee
 
     static async applyCoupon(ride: Ride, couponCode: string): Promise<Ride> {
-        const coupon = await this.couponRepository.findOne({ where: { code: couponCode, isActive: true } });
+        const coupon = await this.couponRepository.findOne({ where: { code: couponCode, isActive: true, tenantId: ride.tenantId } });
 
         if (!coupon || coupon.expiryDate < new Date()) {
             return ride;

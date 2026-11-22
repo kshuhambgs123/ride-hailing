@@ -12,3 +12,10 @@ const host = debuggerHost ? debuggerHost.split(':')[0] : 'localhost';
 
 export const BASE_URL = deployedBaseUrl || `http://${host}:5000`;
 export const API_URL = `${BASE_URL}/api`;
+
+// Baked in per white-labeled build (frontend/eas.json's build.<profile>.env)
+// — tells the shared backend which operator's data this build belongs to.
+// Unset falls back to the original "volo" tenant (see
+// backend/src/middleware/tenant.middleware.ts), so existing single-tenant
+// builds keep working with no changes.
+export const TENANT_SLUG = process.env.EXPO_PUBLIC_TENANT_SLUG || "volo";

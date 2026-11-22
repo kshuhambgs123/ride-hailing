@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, ScrollView, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { Appbar, List, Avatar, Button, Text, Card, IconButton } from 'react-native-paper';
 import io from 'socket.io-client';
-import { BASE_URL as SOCKET_URL } from '../api/config';
+import { BASE_URL as SOCKET_URL, TENANT_SLUG } from '../api/config';
 import { getAuthToken } from '../api/session';
 
 export default function ChatScreen({ route, navigation }: any) {
@@ -13,7 +13,7 @@ export default function ChatScreen({ route, navigation }: any) {
     const scrollViewRef = useRef<any>(null);
 
     useEffect(() => {
-        socketRef.current = io(SOCKET_URL, { auth: { token: getAuthToken() } });
+        socketRef.current = io(SOCKET_URL, { auth: { token: getAuthToken(), tenantSlug: TENANT_SLUG } });
 
         socketRef.current.emit('join_ride_chat', rideId);
 

@@ -58,7 +58,7 @@ export class SchedulingService {
      * Volo Chronos: One-Off Advance Booking
      * Precision scheduling for future rides.
      */
-    static async scheduleOneOffRide(userId: string, data: {
+    static async scheduleOneOffRide(userId: string, tenantId: string, data: {
         pickupLat: number,
         pickupLng: number,
         destinationLat: number,
@@ -73,11 +73,12 @@ export class SchedulingService {
 
         // 1. Debit the minimal scheduling fee ONLY if priority is requested
         if (SCHEDULING_FEE > 0) {
-            await WalletService.debitWallet(userId, SCHEDULING_FEE, "CHRONOS_PRIORITY_DEPOSIT");
+            await WalletService.debitWallet(userId, SCHEDULING_FEE, tenantId, "CHRONOS_PRIORITY_DEPOSIT");
         }
 
         const rideRepo = AppDataSource.getRepository(Ride);
         const ride = rideRepo.create({
+            tenantId,
             passenger: { id: userId } as any,
             pickupLat: data.pickupLat,
             pickupLng: data.pickupLng,

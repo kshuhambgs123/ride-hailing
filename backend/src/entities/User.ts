@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, Index } from "typeorm";
+import { Tenant } from "./Tenant";
 
 export enum UserRole {
     USER = "user",
@@ -7,12 +8,23 @@ export enum UserRole {
     ADMIN = "admin"
 }
 
+// Uniqueness is per-tenant, not global: the same phone number can hold a
+// separate account under each white-labeled operator — they're different
+// marketplaces sharing a backend, not one combined user base.
+@Index(["tenantId", "phoneNumber"], { unique: true })
+@Index(["tenantId", "referralCode"], { unique: true, where: '"referralCode" IS NOT NULL' })
 @Entity()
 export class User {
     @PrimaryGeneratedColumn("uuid")
     id!: string;
 
-    @Column({ unique: true })
+    @ManyToOne(() => Tenant)
+    tenant!: Tenant;
+
+    @Column()
+    tenantId!: string;
+
+    @Column()
     phoneNumber!: string;
 
     @Column({ nullable: true })
@@ -40,7 +52,7 @@ export class User {
     @Column({ default: false })
     isKycVerified!: boolean;
 
-    @Column({ unique: true, nullable: true })
+    @Column({ nullable: true })
     referralCode?: string;
 
     @Column({ nullable: true })

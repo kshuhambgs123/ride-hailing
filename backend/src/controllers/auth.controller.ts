@@ -8,10 +8,12 @@ import { TrustService } from "../services/TrustService";
 import { WalletService } from "../services/WalletService";
 import { SentinelService } from "../services/SentinelService";
 import { AuditAction } from "../entities/AuditLog";
+import { TenantRequest } from "../middleware/tenant.middleware";
 
-export const verifyOtp = async (req: Request, res: Response) => {
+export const verifyOtp = async (req: TenantRequest, res: Response) => {
     const userRepository = AppDataSource.getRepository(User);
     const { idToken, role } = req.body;
+    const tenant = req.tenant!;
 
     try {
         let phoneNumber: string | undefined;
@@ -31,11 +33,14 @@ export const verifyOtp = async (req: Request, res: Response) => {
             return res.status(400).json({ message: "Phone number not found in token" });
         }
 
-        let user = await userRepository.findOne({ where: { phoneNumber } });
+        // Scoped to this tenant — the same phone number can hold a separate
+        // account under a different operator.
+        let user = await userRepository.findOne({ where: { phoneNumber, tenantId: tenant.id } });
 
         if (!user) {
             user = userRepository.create({
                 phoneNumber,
+                tenantId: tenant.id,
                 role: role || UserRole.USER,
                 isVerified: true,
             });
@@ -43,14 +48,14 @@ export const verifyOtp = async (req: Request, res: Response) => {
 
             // VOLO WELCOME: First-time credit
             try {
-                await WalletService.creditWallet(user.id, 10, "WELCOME_BONUS");
+                await WalletService.creditWallet(user.id, 10, tenant.id, "WELCOME_BONUS");
                 user.walletBalance = 10; // Reflect in the response
             } catch (e) {
                 console.error("Welcome credit failed", e);
             }
         }
 
-        const token = generateToken({ id: user.id, role: user.role });
+        const token = generateToken({ id: user.id, role: user.role, tenantId: tenant.id });
 
         // Record Audit (Volo Sentinel)
         await SentinelService.log(AuditAction.USER_LOGIN, user.id, { ip: req.ip }, req.ip);

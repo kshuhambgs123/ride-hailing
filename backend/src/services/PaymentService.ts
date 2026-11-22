@@ -54,6 +54,7 @@ export class PaymentService {
         providerName: string = "stripe",
         rideId?: string,
         userId?: string,
+        tenantId?: string,
         customer?: CustomerInfo
     ) {
         const provider = this.getProvider(providerName);
@@ -64,6 +65,7 @@ export class PaymentService {
             if (userId) {
                 const txRepo = AppDataSource.getRepository(Transaction);
                 const tx = txRepo.create({
+                    tenantId,
                     user: { id: userId },
                     ride: rideId ? { id: rideId } : undefined,
                     type: TransactionType.PAYMENT,
@@ -112,6 +114,7 @@ export class PaymentService {
 
         if (originalTx) {
             const refund = txRepo.create({
+                tenantId: originalTx.tenantId,
                 user: originalTx.user,
                 ride: originalTx.ride,
                 type: TransactionType.REFUND,

@@ -1,6 +1,7 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, Index } from "typeorm";
 import { User } from "./User";
 import { Ride } from "./Ride";
+import { Tenant } from "./Tenant";
 
 export enum TransactionType {
     PAYMENT = "payment",
@@ -23,6 +24,13 @@ export enum TransactionStatus {
 export class Transaction {
     @PrimaryGeneratedColumn("uuid")
     id!: string;
+
+    @ManyToOne(() => Tenant)
+    @Index()
+    tenant!: Tenant;
+
+    @Column()
+    tenantId!: string;
 
     @ManyToOne(() => User)
     user!: User;

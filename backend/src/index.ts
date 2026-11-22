@@ -26,6 +26,8 @@ import { Server } from "socket.io";
 import { createAdapter } from "@socket.io/redis-adapter";
 import Redis from "ioredis";
 import { socketAuth } from "./middleware/socketAuth";
+import { resolveTenant, DEFAULT_TENANT_SLUG } from "./middleware/tenant.middleware";
+import { Tenant } from "./entities/Tenant";
 
 dotenv.config();
 
@@ -60,16 +62,17 @@ app.use("/api/webhooks", webhookRoutes);
 app.use(express.json());
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 
-// Health Check
+// Health Check (infra-level — intentionally not tenant-scoped)
 app.use("/api/health", healthRoutes);
 
-// Routes
-app.use("/api/auth", authRoutes);
-app.use("/api/rides", rideRoutes);
-app.use("/api/reviews", reviewRoutes);
-app.use("/api/platform", platformRoutes);
-app.use("/api/wallet", walletRoutes);
-app.use("/api/upload", uploadRoutes);
+// Routes — resolveTenant runs first so even login/signup knows which
+// operator's data to read/write (see tenant.middleware.ts).
+app.use("/api/auth", resolveTenant, authRoutes);
+app.use("/api/rides", resolveTenant, rideRoutes);
+app.use("/api/reviews", resolveTenant, reviewRoutes);
+app.use("/api/platform", resolveTenant, platformRoutes);
+app.use("/api/wallet", resolveTenant, walletRoutes);
+app.use("/api/upload", resolveTenant, uploadRoutes);
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 // Initialize Services with Socket.io
@@ -83,6 +86,17 @@ app.get("/", (req, res) => {
 AppDataSource.initialize()
     .then(async () => {
         console.log("Data Source has been initialized!");
+
+        // Ensures resolveTenant's fallback slug always resolves to something,
+        // so a single-tenant deployment (or this app's own existing data)
+        // keeps working with no header and no manual setup step.
+        const tenantRepo = AppDataSource.getRepository(Tenant);
+        const existing = await tenantRepo.findOne({ where: { slug: DEFAULT_TENANT_SLUG } });
+        if (!existing) {
+            await tenantRepo.save(tenantRepo.create({ slug: DEFAULT_TENANT_SLUG, name: "Volo" }));
+            console.log(`Seeded default tenant "${DEFAULT_TENANT_SLUG}"`);
+        }
+
         await SentinelService.log(AuditAction.USER_LOGIN, undefined, { event: "SYSTEM_START" }); // Reusing USER_LOGIN for system start as a placeholder
         server.listen(PORT, () => {
             console.log(`Server is running on port ${PORT}`);

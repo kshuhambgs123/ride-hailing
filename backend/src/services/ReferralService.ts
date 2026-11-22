@@ -11,7 +11,10 @@ export class ReferralService {
     static async applyReferral(newUser: User, referralCode: string) {
         if (!referralCode) return;
 
-        const referrer = await this.userRepository.findOne({ where: { referralCode } });
+        // referralCode is only unique per tenant (see User.ts) — without
+        // this, a code collision between two different operators' users
+        // could reward/link the wrong tenant's account entirely.
+        const referrer = await this.userRepository.findOne({ where: { referralCode, tenantId: newUser.tenantId } });
         if (referrer) {
             newUser.referredBy = referralCode;
 
