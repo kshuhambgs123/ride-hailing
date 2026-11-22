@@ -26,7 +26,10 @@ export class Tenant {
 
     // Platform's cut of each fare, as a fraction (0.20 = 20%). Lets each
     // operator be sold a different commission rate.
-    @Column("decimal", { precision: 5, scale: 4, default: 0.2 })
+    // Raw expression, not 0.2: Postgres stores this default as a bare `0.2`
+    // (not `'0.2'::numeric`), and TypeORM compares defaults as text — any
+    // other form makes every migration:generate report a phantom change.
+    @Column("decimal", { precision: 5, scale: 4, default: () => "0.2" })
     commissionRate!: number;
 
     @Column({ default: true })
